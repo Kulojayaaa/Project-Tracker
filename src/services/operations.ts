@@ -2,6 +2,8 @@ import { supabase } from "../lib/supabase";
 import type {
   BillStatus,
   ClientOption,
+  ClientFormValues,
+  ClientRecord,
   DcFormValues,
   DcRecord,
   FinancialYearOption,
@@ -39,6 +41,76 @@ function relationValue(value: unknown, field: string) {
   return (value as Record<string, unknown> | null | undefined)?.[field] ?? null;
 }
 
+
+export function createEmptyClientForm(): ClientFormValues {
+  return {
+    name: "",
+    contact_person: "",
+    email: "",
+    phone: "",
+    gstin: "",
+    active: true
+  };
+}
+
+export function clientToForm(client: ClientRecord): ClientFormValues {
+  return {
+    name: client.name,
+    contact_person: client.contact_person ?? "",
+    email: client.email ?? "",
+    phone: client.phone ?? "",
+    gstin: client.gstin ?? "",
+    active: client.active
+  };
+}
+
+export async function listClientsMaster(search = ""): Promise<ClientRecord[]> {
+  let query = supabase
+    .from("clients")
+    .select("id, name, contact_person, email, phone, gstin, active")
+    .order("name")
+    .limit(300);
+
+  const cleanedSearch = search.trim();
+  if (cleanedSearch) {
+    query = query.or(`name.ilike.%${cleanedSearch}%,contact_person.ilike.%${cleanedSearch}%,email.ilike.%${cleanedSearch}%,phone.ilike.%${cleanedSearch}%,gstin.ilike.%${cleanedSearch}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error("Unable to load clients.");
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    contact_person: row.contact_person,
+    email: row.email,
+    phone: row.phone,
+    gstin: row.gstin,
+    active: Boolean(row.active)
+  }));
+}
+
+export async function saveClient(values: ClientFormValues, id?: string): Promise<void> {
+  if (!values.name.trim()) {
+    throw new Error("Client name is required.");
+  }
+
+  const payload = {
+    name: values.name.trim(),
+    contact_person: emptyToNull(values.contact_person),
+    email: emptyToNull(values.email),
+    phone: emptyToNull(values.phone),
+    gstin: emptyToNull(values.gstin),
+    active: values.active
+  };
+
+  const result = id ? await supabase.from("clients").update(payload).eq("id", id) : await supabase.from("clients").insert(payload);
+
+  if (result.error) {
+    if (result.error.code === "23505") throw new Error("Client name already exists. Please check the client master.");
+    throw new Error(result.error.message || "Unable to save client.");
+  }
+}
 export async function listFinancialYears(): Promise<FinancialYearOption[]> {
   const { data, error } = await supabase
     .from("financial_years")
@@ -467,3 +539,4 @@ export function salesToForm(record: SalesRecord): SalesFormValues {
     remarks: record.remarks ?? ""
   };
 }
+

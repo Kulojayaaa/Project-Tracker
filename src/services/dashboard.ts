@@ -18,6 +18,13 @@ type DashboardSummaryRow = {
   current_month_pending_planned: number | string;
   billing_plan_shortfall: number | string;
   pending_dc_invoice_value: number | string;
+  project_count: number | string;
+  fully_billed_project_count: number | string;
+  pending_project_count: number | string;
+  future_planned_billing: number | string;
+  ra_due_count: number | string;
+  ra_raised_count: number | string;
+  ra_delayed_count: number | string;
   pending_dc_count: number | string;
   overdue_dc_count: number | string;
 };
@@ -40,6 +47,13 @@ export type DashboardSummary = {
   currentMonthPendingPlanned: number;
   billingPlanShortfall: number;
   pendingDcInvoiceValue: number;
+  projectCount: number;
+  fullyBilledProjectCount: number;
+  pendingProjectCount: number;
+  futurePlannedBilling: number;
+  raDueCount: number;
+  raRaisedCount: number;
+  raDelayedCount: number;
   pendingDcCount: number;
   overdueDcCount: number;
 };
@@ -67,6 +81,13 @@ function mapSummary(row: DashboardSummaryRow): DashboardSummary {
     currentMonthPendingPlanned: toNumber(row.current_month_pending_planned),
     billingPlanShortfall: toNumber(row.billing_plan_shortfall),
     pendingDcInvoiceValue: toNumber(row.pending_dc_invoice_value),
+    projectCount: toNumber(row.project_count),
+    fullyBilledProjectCount: toNumber(row.fully_billed_project_count),
+    pendingProjectCount: toNumber(row.pending_project_count),
+    futurePlannedBilling: toNumber(row.future_planned_billing),
+    raDueCount: toNumber(row.ra_due_count),
+    raRaisedCount: toNumber(row.ra_raised_count),
+    raDelayedCount: toNumber(row.ra_delayed_count),
     pendingDcCount: toNumber(row.pending_dc_count),
     overdueDcCount: toNumber(row.overdue_dc_count)
   };
@@ -81,3 +102,4 @@ export async function getDashboardSummary(): Promise<DashboardSummary | null> {
 
   return data ? mapSummary(data as DashboardSummaryRow) : null;
 }
+

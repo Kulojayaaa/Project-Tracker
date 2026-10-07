@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
+import { supabase, supabaseConfigError, usingSupabaseCoDomain } from "../lib/supabase";
 import type { WithChildren } from "../types/domain";
+
+function authMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "Authentication failed. Please check your details.";
+
+  if (/failed to fetch|networkerror|fetch failed/i.test(message)) {
+    return usingSupabaseCoDomain ? "Unable to reach Supabase. Some networks/ISPs may block or poison DNS for *.supabase.co; use a Supabase custom domain in VITE_SUPABASE_API_URL for production if this affects users." : "Unable to reach Supabase. Check the custom Supabase API domain, publishable key, DNS, HTTPS certificate, and network access.";
+  }
+
+  return message;
+}
 
 export function AuthGate({ children }: WithChildren) {
   const [session, setSession] = useState<Session | null>(null);
@@ -15,8 +25,17 @@ export function AuthGate({ children }: WithChildren) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (supabaseConfigError) {
+      setError(supabaseConfigError);
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      setLoading(false);
+    }).catch((sessionError: unknown) => {
+      setError(authMessage(sessionError));
       setLoading(false);
     });
 
@@ -30,10 +49,18 @@ export function AuthGate({ children }: WithChildren) {
 
   async function ensureProfile(currentSession: Session, displayName: string) {
     const user = currentSession.user;
-    const { data: existingProfile } = await supabase.from("users").select("id").eq("id", user.id).maybeSingle();
+    const { data: existingProfile, error: profileLookupError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileLookupError) {
+      throw profileLookupError;
+    }
 
     if (!existingProfile) {
-      await supabase.from("users").insert({
+      const { error: insertProfileError } = await supabase.from("users").insert({
         id: user.id,
         name: displayName || user.email || "IPI User",
         email: user.email ?? email,
@@ -41,6 +68,10 @@ export function AuthGate({ children }: WithChildren) {
         department: "Irrigation",
         active: true
       });
+
+      if (insertProfileError) {
+        throw insertProfileError;
+      }
     }
   }
 
@@ -77,7 +108,7 @@ export function AuthGate({ children }: WithChildren) {
         }
       }
     } catch (authError) {
-      setError(authError instanceof Error ? authError.message : "Authentication failed. Please check your details.");
+      setError(authMessage(authError));
     } finally {
       setSubmitting(false);
     }
@@ -89,6 +120,25 @@ export function AuthGate({ children }: WithChildren) {
 
   if (session) {
     return <>{children}</>;
+  }
+
+  if (supabaseConfigError) {
+    return (
+      <div className="auth-shell">
+        <section className="auth-card">
+          <div className="brand auth-brand">
+            <div className="brand-mark">IPI</div>
+            <div>
+              <strong>IPI Billing & Sales</strong>
+              <span>Irrigation Department</span>
+            </div>
+          </div>
+          <h1>Supabase setup required</h1>
+          <div className="alert error-alert">{supabaseConfigError}</div>
+          <p>In Vercel, add the required environment variables in Project Settings, then redeploy the latest GitHub commit.</p>
+        </section>
+      </div>
+    );
   }
 
   return (
@@ -124,11 +174,12 @@ export function AuthGate({ children }: WithChildren) {
             {submitting ? "Please wait..." : mode === "sign-in" ? "Sign in" : "Create account"}
           </button>
         </form>
-        <button className="link-button" onClick={() => setMode(mode === "sign-in" ? "sign-up" : "sign-in")} type="button">
+        <button className="link-button" onClick={() => { setError(null); setMessage(null); setMode(mode === "sign-in" ? "sign-up" : "sign-in"); }} type="button">
           {mode === "sign-in" ? "Need an account? Create one" : "Already have an account? Sign in"}
         </button>
       </section>
     </div>
   );
 }
+
 

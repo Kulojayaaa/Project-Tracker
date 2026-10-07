@@ -1,53 +1,79 @@
 import { supabase } from "../lib/supabase";
-import type { ClientOption, ProjectFormValues, ProjectStatus, ProjectSummary } from "../types/domain";
+import type {
+  ClientOption,
+  ProjectFormValues,
+  ProjectListOptions,
+  ProjectListResult,
+  ProjectStatus,
+  ProjectSummary
+} from "../types/domain";
 
-const projectSelect = `
-  id,
-  project_code,
-  project_name,
-  client_id,
-  clients(name),
-  location,
-  wo_number,
-  wo_date,
-  project_start_date,
-  expected_completion_date,
-  project_status,
-  base_wo_value,
-  gst_value,
-  total_wo_value,
-  billing_target,
-  opening_invoiced_amount,
-  remarks
-`;
-
-type ProjectRow = {
+type ProjectSummaryRow = {
   id: string;
   project_code: string;
   project_name: string;
   client_id: string | null;
-  clients: { name: string | null } | { name: string | null }[] | null;
+  client_name: string | null;
   location: string | null;
   wo_number: string | null;
   wo_date: string | null;
   project_start_date: string | null;
   expected_completion_date: string | null;
+  project_manager_id: string | null;
+  project_manager_name: string | null;
   project_status: ProjectStatus;
   base_wo_value: number | string;
   gst_value: number | string;
   total_wo_value: number | string;
   billing_target: number | string;
   opening_invoiced_amount: number | string;
-  remarks: string | null;
-};
-
-type BillingSummaryRow = {
-  id: string;
   current_invoiced_amount: number | string | null;
   total_invoiced_amount: number | string | null;
   pending_billing_amount: number | string | null;
   billing_percentage: number | string | null;
+  last_invoice_date: string | null;
+  next_proposed_billing_date: string | null;
+  proposed_billing_amount: number | string | null;
+  future_planned_billing: number | string | null;
+  billing_status: string | null;
+  remarks: string | null;
 };
+
+type ProjectManagerOption = {
+  id: string;
+  name: string;
+};
+
+const projectSummarySelect = `
+  id,
+  project_code,
+  project_name,
+  client_id,
+  client_name,
+  location,
+  wo_number,
+  wo_date,
+  project_start_date,
+  expected_completion_date,
+  project_manager_id,
+  project_manager_name,
+  project_status,
+  base_wo_value,
+  gst_value,
+  total_wo_value,
+  billing_target,
+  opening_invoiced_amount,
+  current_invoiced_amount,
+  total_invoiced_amount,
+  pending_billing_amount,
+  billing_percentage,
+  last_invoice_date,
+  next_proposed_billing_date,
+  proposed_billing_amount,
+  future_planned_billing,
+  billing_status,
+  remarks
+`;
 
 function toNumber(value: number | string | null | undefined) {
   return Number(value ?? 0);
@@ -62,36 +88,35 @@ function numberFromInput(value: string) {
   return Number(value || 0);
 }
 
-function clientName(row: ProjectRow) {
-  if (Array.isArray(row.clients)) {
-    return row.clients[0]?.name ?? null;
-  }
-
-  return row.clients?.name ?? null;
-}
-
-function mapProject(row: ProjectRow, summary?: BillingSummaryRow): ProjectSummary {
+function mapProject(row: ProjectSummaryRow): ProjectSummary {
   return {
     id: row.id,
     project_code: row.project_code,
     project_name: row.project_name,
     client_id: row.client_id,
-    client_name: clientName(row),
+    client_name: row.client_name,
     location: row.location,
     wo_number: row.wo_number,
     wo_date: row.wo_date,
     project_start_date: row.project_start_date,
     expected_completion_date: row.expected_completion_date,
+    project_manager_id: row.project_manager_id,
+    project_manager_name: row.project_manager_name,
     project_status: row.project_status,
     base_wo_value: toNumber(row.base_wo_value),
     gst_value: toNumber(row.gst_value),
     total_wo_value: toNumber(row.total_wo_value),
     billing_target: toNumber(row.billing_target),
     opening_invoiced_amount: toNumber(row.opening_invoiced_amount),
-    current_invoiced_amount: toNumber(summary?.current_invoiced_amount),
-    total_invoiced_amount: toNumber(summary?.total_invoiced_amount ?? row.opening_invoiced_amount),
-    pending_billing_amount: toNumber(summary?.pending_billing_amount ?? row.billing_target),
-    billing_percentage: toNumber(summary?.billing_percentage),
+    current_invoiced_amount: toNumber(row.current_invoiced_amount),
+    total_invoiced_amount: toNumber(row.total_invoiced_amount),
+    pending_billing_amount: toNumber(row.pending_billing_amount),
+    billing_percentage: toNumber(row.billing_percentage),
+    last_invoice_date: row.last_invoice_date,
+    next_proposed_billing_date: row.next_proposed_billing_date,
+    proposed_billing_amount: toNumber(row.proposed_billing_amount),
+    future_planned_billing: toNumber(row.future_planned_billing),
+    billing_status: row.billing_status ?? "Billing Plan Shortfall",
     remarks: row.remarks
   };
 }
@@ -106,40 +131,69 @@ export async function listClients(): Promise<ClientOption[]> {
   return data ?? [];
 }
 
-export async function listProjects(search: string): Promise<ProjectSummary[]> {
-  const cleanedSearch = search.trim();
-  let query = supabase.from("projects").select(projectSelect).order("created_at", { ascending: false }).limit(100);
+export async function listProjectManagers(): Promise<ProjectManagerOption[]> {
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, name")
+    .eq("active", true)
+    .in("role", ["admin", "project_admin", "project_manager"])
+    .order("name");
+
+  if (error) {
+    return [];
+  }
+
+  return data ?? [];
+}
+
+export async function listProjects(options: ProjectListOptions | string = {}): Promise<ProjectListResult> {
+  const normalized: ProjectListOptions = typeof options === "string" ? { search: options } : options;
+  const page = normalized.page ?? 1;
+  const pageSize = normalized.pageSize ?? 25;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  const sortBy = normalized.sortBy ?? "project_code";
+  const sortDirection = normalized.sortDirection ?? "ascending";
+  const cleanedSearch = normalized.search?.trim() ?? "";
+
+  let query = supabase
+    .from("project_billing_summary")
+    .select(projectSummarySelect, { count: "exact" })
+    .order(sortBy, { ascending: sortDirection === "ascending", nullsFirst: false })
+    .range(from, to);
 
   if (cleanedSearch) {
     query = query.or(
-      `project_code.ilike.%${cleanedSearch}%,project_name.ilike.%${cleanedSearch}%,wo_number.ilike.%${cleanedSearch}%`
+      `project_code.ilike.%${cleanedSearch}%,project_name.ilike.%${cleanedSearch}%,client_name.ilike.%${cleanedSearch}%,wo_number.ilike.%${cleanedSearch}%`
     );
   }
 
-  const { data, error } = await query;
+  if (normalized.clientId) query = query.eq("client_id", normalized.clientId);
+  if (normalized.managerId) query = query.eq("project_manager_id", normalized.managerId);
+  if (normalized.status) query = query.eq("project_status", normalized.status);
+  if (normalized.billingStatus) query = query.eq("billing_status", normalized.billingStatus);
+
+  const { data, error, count } = await query;
 
   if (error) {
     throw new Error("Unable to load projects. Please check your connection and Supabase permissions.");
   }
 
-  const projectRows = (data ?? []) as ProjectRow[];
-  const ids = projectRows.map((project) => project.id);
-  const summaries = new Map<string, BillingSummaryRow>();
+  return { rows: ((data ?? []) as ProjectSummaryRow[]).map(mapProject), count: count ?? 0 };
+}
 
-  if (ids.length) {
-    const { data: summaryData, error: summaryError } = await supabase
-      .from("project_billing_summary")
-      .select("id, current_invoiced_amount, total_invoiced_amount, pending_billing_amount, billing_percentage")
-      .in("id", ids);
+export async function getProject(projectId: string): Promise<ProjectSummary | null> {
+  const { data, error } = await supabase
+    .from("project_billing_summary")
+    .select(projectSummarySelect)
+    .eq("id", projectId)
+    .maybeSingle();
 
-    if (!summaryError) {
-      for (const summary of (summaryData ?? []) as BillingSummaryRow[]) {
-        summaries.set(summary.id, summary);
-      }
-    }
+  if (error) {
+    throw new Error("Unable to load project details.");
   }
 
-  return projectRows.map((project) => mapProject(project, summaries.get(project.id)));
+  return data ? mapProject(data as ProjectSummaryRow) : null;
 }
 
 export function createEmptyProjectForm(): ProjectFormValues {
@@ -226,5 +280,3 @@ export async function archiveProject(projectId: string): Promise<void> {
     throw new Error("Unable to archive this project. Please try again.");
   }
 }
-
-

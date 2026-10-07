@@ -64,6 +64,25 @@ export type ClientOption = {
   name: string;
 };
 
+
+export type ClientRecord = {
+  id: string;
+  name: string;
+  contact_person: string | null;
+  email: string | null;
+  phone: string | null;
+  gstin: string | null;
+  active: boolean;
+};
+
+export type ClientFormValues = {
+  name: string;
+  contact_person: string;
+  email: string;
+  phone: string;
+  gstin: string;
+  active: boolean;
+};
 export type FinancialYearOption = {
   id: string;
   name: string;
@@ -88,6 +107,8 @@ export type ProjectSummary = ProjectOption & {
   wo_date: string | null;
   project_start_date: string | null;
   expected_completion_date: string | null;
+  project_manager_id: string | null;
+  project_manager_name: string | null;
   project_status: ProjectStatus;
   base_wo_value: number;
   gst_value: number;
@@ -95,7 +116,29 @@ export type ProjectSummary = ProjectOption & {
   opening_invoiced_amount: number;
   current_invoiced_amount: number;
   billing_percentage: number;
+  last_invoice_date: string | null;
+  next_proposed_billing_date: string | null;
+  proposed_billing_amount: number;
+  future_planned_billing: number;
+  billing_status: string;
   remarks: string | null;
+};
+
+export type ProjectListOptions = {
+  search?: string;
+  clientId?: string;
+  managerId?: string;
+  status?: ProjectStatus | "";
+  billingStatus?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: "project_code" | "project_name" | "client_name" | "total_wo_value" | "pending_billing_amount" | "billing_percentage";
+  sortDirection?: "ascending" | "descending";
+};
+
+export type ProjectListResult = {
+  rows: ProjectSummary[];
+  count: number;
 };
 
 export type ProjectFormValues = {
@@ -252,3 +295,5 @@ export type SalesFormValues = {
   source_reference: string;
   remarks: string;
 };
+
+

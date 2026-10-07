@@ -754,3 +754,151 @@ td {
     grid-template-columns: 1fr;
   }
 }
+
+.project-filter-row {
+  align-items: stretch;
+}
+
+.project-filter-row select {
+  min-width: 170px;
+}
+
+.sort-button,
+.link-table-button,
+.tab-button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  font-weight: 800;
+}
+
+.link-table-button {
+  color: #195b8a;
+  padding: 0;
+  text-align: left;
+}
+
+.pagination-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 14px;
+  color: #60758a;
+  font-weight: 700;
+}
+
+.project-detail-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.project-detail-header p {
+  color: #60758a;
+  margin: 5px 0 0;
+}
+
+.tabs-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid #e5edf3;
+  margin: -2px 0 16px;
+  padding-bottom: 10px;
+}
+
+.tab-button {
+  border-radius: 8px;
+  color: #31516e;
+  min-height: 36px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.tab-button.active,
+.tab-button:hover {
+  background: #e8f2f8;
+  color: #195b8a;
+  font-weight: 800;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.detail-grid article {
+  border: 1px solid #e5edf3;
+  border-radius: 8px;
+  padding: 13px;
+}
+
+.detail-grid span {
+  display: block;
+  color: #60758a;
+  font-size: 0.84rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+@media print {
+  .sidebar,
+  .top-header,
+  .quick-actions,
+  .button-row,
+  .mobile-toolbar {
+    display: none !important;
+  }
+
+  .main-panel {
+    padding: 0;
+  }
+
+  .panel,
+  .stat-card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .report-page::before {
+    content: "IPI - Irrigation Department | Confidential - Internal Use";
+    display: block;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}
+
+@media (max-width: 980px) {
+  .detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .project-detail-header,
+  .pagination-row {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+

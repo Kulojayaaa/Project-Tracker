@@ -18,16 +18,34 @@ type ReportsPageProps = {
   page: AppPage;
 };
 
-function downloadCsv(title: string, rows: ReportRow[]) {
+function downloadExcelWorkbook(title: string, rows: ReportRow[]) {
   if (!rows.length) return;
   const headers = Object.keys(rows[0]);
-  const escape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
-  const csv = [headers.map(escape).join(","), ...rows.map((row) => headers.map((header) => escape(row[header])).join(","))].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const escapeXml = (value: string | number) => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const worksheetRows = [
+    `<Row>${headers.map((header) => `<Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXml(header)}</Data></Cell>`).join("")}</Row>`,
+    ...rows.map((row) => `<Row>${headers.map((header) => {
+      const value = row[header];
+      const type = typeof value === "number" ? "Number" : "String";
+      return `<Cell><Data ss:Type="${type}">${escapeXml(value)}</Data></Cell>`;
+    }).join("")}</Row>`)
+  ].join("");
+  const generatedAt = new Date().toLocaleString("en-IN");
+  const workbook = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles><Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#E8F2F8" ss:Pattern="Solid"/></Style></Styles>
+  <Worksheet ss:Name="Report">
+    <Table>${worksheetRows}</Table>
+    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane><Panes><Pane><Number>3</Number><ActiveRow>1</ActiveRow></Pane></Panes></WorksheetOptions>
+  </Worksheet>
+  <Worksheet ss:Name="Metadata"><Table><Row><Cell ss:StyleID="Header"><Data ss:Type="String">Report</Data></Cell><Cell><Data ss:Type="String">${escapeXml(title)}</Data></Cell></Row><Row><Cell ss:StyleID="Header"><Data ss:Type="String">Generated</Data></Cell><Cell><Data ss:Type="String">${escapeXml(generatedAt)}</Data></Cell></Row></Table></Worksheet>
+</Workbook>`;
+  const blob = new Blob([workbook], { type: "application/vnd.ms-excel;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
+  anchor.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.xls`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -130,8 +148,8 @@ export function ReportsPage({ page }: ReportsPageProps) {
       {error ? <ModuleMessage tone="error">{error}</ModuleMessage> : null}
       <section className="panel">
         <div className="panel-header controls-header">
-          <div><h2>{title}</h2><p>Exports use the currently loaded report rows. Use print for a PDF-ready report.</p></div>
-          <div className="button-row"><button className="outline-button" onClick={() => void load()} type="button"><RefreshCw size={16} />Refresh</button><button className="outline-button" onClick={() => downloadCsv(title, rows)} type="button"><Download size={16} />Export Excel CSV</button><button className="outline-button" onClick={() => window.print()} type="button"><Printer size={16} />Print / PDF</button></div>
+          <div><h2>{title}</h2><p>Exports use the currently loaded report rows. Excel downloads use an Excel workbook format; Print creates the PDF-ready version.</p></div>
+          <div className="button-row"><button className="outline-button" onClick={() => void load()} type="button"><RefreshCw size={16} />Refresh</button><button className="outline-button" onClick={() => downloadExcelWorkbook(title, rows)} type="button"><Download size={16} />Export Excel</button><button className="outline-button" onClick={() => window.print()} type="button"><Printer size={16} />Print / PDF</button></div>
         </div>
         {loading ? <div className="empty-state">Loading report...</div> : null}
         {!loading && !rows.length ? <div className="empty-state">No report data found for the current records.</div> : null}
@@ -140,3 +158,4 @@ export function ReportsPage({ page }: ReportsPageProps) {
     </div>
   );
 }
+
