@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/supabase/:path*",
+      "destination": "https://emblerizebosovygvams.supabase.co/:path*"
+    }
+  ]
+}
