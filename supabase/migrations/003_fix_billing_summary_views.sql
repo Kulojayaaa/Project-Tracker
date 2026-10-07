@@ -15,7 +15,6 @@ select
   c.name as client_name,
   p.wo_number,
   p.total_wo_value,
-  p.billing_target,
   p.opening_invoiced_amount,
   coalesce(current_invoices.current_invoiced_amount, 0) as current_invoiced_amount,
   p.opening_invoiced_amount + coalesce(current_invoices.current_invoiced_amount, 0) as total_invoiced_amount,
@@ -76,8 +75,6 @@ select distinct on (fy.id) fy.id as financial_year_id, fy.name as financial_year
   coalesce(sd.cumulative_sales, 0) as achieved,
   greatest(fy.sales_target - coalesce(sd.cumulative_sales, 0), 0) as balance,
   case when fy.sales_target > 0 then (coalesce(sd.cumulative_sales, 0) / fy.sales_target) * 100 else 0 end as achievement_percentage,
-  sd.today_sales,
-  sd.current_month_sales,
   sd.report_date
 from public.financial_years fy
 left join public.sales_daily sd on sd.financial_year_id = fy.id
@@ -153,3 +150,5 @@ cross join project_totals
 cross join pipeline_current
 cross join dc_totals
 left join sales_latest on sales_latest.financial_year_id = fy.id;
+
+
