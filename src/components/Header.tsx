@@ -1,4 +1,5 @@
 import { Bell, LogOut, Search, UserRound } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 type HeaderProps = {
   breadcrumb: string;
@@ -28,7 +29,7 @@ export function Header({ breadcrumb, title }: HeaderProps) {
         <button aria-label="User profile" className="icon-button" type="button">
           <UserRound size={18} />
         </button>
-        <button aria-label="Logout" className="icon-button" type="button">
+        <button aria-label="Logout" className="icon-button" onClick={() => void supabase.auth.signOut()} type="button">
           <LogOut size={18} />
         </button>
       </div>

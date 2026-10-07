@@ -669,3 +669,88 @@ td {
     align-items: flex-start;
   }
 }
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f4f7fa;
+}
+
+.auth-card {
+  width: min(460px, 100%);
+  background: #ffffff;
+  border: 1px solid #dde7ee;
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(19, 34, 56, 0.08);
+  padding: 24px;
+}
+
+.auth-brand {
+  border-bottom-color: #dde7ee;
+  margin-bottom: 18px;
+}
+
+.auth-brand span {
+  color: #60758a;
+}
+
+.auth-card p {
+  color: #60758a;
+  line-height: 1.5;
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.link-button {
+  border: 0;
+  background: transparent;
+  color: #195b8a;
+  font-weight: 800;
+  margin-top: 14px;
+  padding: 0;
+}
+
+.context-box {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 14px;
+  border: 1px solid #b9d8ee;
+  background: #f2f8fc;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.context-box strong {
+  grid-column: 1 / -1;
+}
+
+.context-box span {
+  color: #415a73;
+}
+
+.checkbox-field {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #31516e;
+  font-weight: 700;
+}
+
+.checkbox-field input {
+  width: 17px;
+  height: 17px;
+}
+
+@media (max-width: 760px) {
+  .context-box {
+    grid-template-columns: 1fr;
+  }
+}
