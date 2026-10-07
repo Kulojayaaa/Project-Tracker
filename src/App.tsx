@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { AuthGate } from "./components/AuthGate";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
+import { BillingForecastPage } from "./pages/BillingForecastPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DailySalesPage } from "./pages/DailySalesPage";
 import { DcRegisterPage } from "./pages/DcRegisterPage";
@@ -10,6 +11,7 @@ import { InvoiceRegisterPage } from "./pages/InvoiceRegisterPage";
 import { getPageLabel, PlaceholderPage } from "./pages/PlaceholderPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { RaSchedulePage } from "./pages/RaSchedulePage";
+import { ReportsPage } from "./pages/ReportsPage";
 import type { AppPage } from "./types/domain";
 
 function pageTitle(page: AppPage) {
@@ -24,9 +26,11 @@ function renderPage(page: AppPage, onNavigate: (page: AppPage) => void) {
   }
   if (page === "billing-invoices") return <InvoiceRegisterPage />;
   if (page === "billing-ra-schedule") return <RaSchedulePage />;
+  if (page === "billing-forecast") return <BillingForecastPage />;
   if (page === "dispatch-dc-register") return <DcRegisterPage />;
   if (page === "dispatch-dc-pending") return <DcRegisterPage pendingOnly />;
   if (page === "sales-daily" || page === "sales-summary" || page === "sales-fy-comparison") return <DailySalesPage />;
+  if (page.startsWith("reports-")) return <ReportsPage page={page} />;
   return <PlaceholderPage page={page} />;
 }
 
