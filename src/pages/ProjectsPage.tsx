@@ -114,7 +114,7 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
 
   useEffect(() => {
     if (startInCreateMode) {
-      openCreateForm();
+      void openCreateForm();
     }
   }, [startInCreateMode]);
 
@@ -122,20 +122,32 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function openCreateForm() {
-    setEditingProject(null);
-    setForm(createEmptyProjectForm());
-    setFormOpen(true);
-    setNotice(null);
-    setError(null);
+  async function refreshProjectReferences() {
+    try {
+      const [clientRows, managerRows] = await Promise.all([listClients(), listProjectManagers()]);
+      setClients(clientRows);
+      setManagers(managerRows);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load linked master data.");
+    }
   }
 
-  function openEditForm(project: ProjectSummary) {
-    setEditingProject(project);
-    setForm(projectToForm(project));
-    setFormOpen(true);
+  async function openCreateForm() {
+    setEditingProject(null);
+    setForm(createEmptyProjectForm());
     setNotice(null);
     setError(null);
+    await refreshProjectReferences();
+    setFormOpen(true);
+  }
+
+  async function openEditForm(project: ProjectSummary) {
+    setEditingProject(project);
+    setForm(projectToForm(project));
+    setNotice(null);
+    setError(null);
+    await refreshProjectReferences();
+    setFormOpen(true);
   }
 
   function closeForm() {
@@ -222,7 +234,7 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
           </div>
           <div className="button-row">
             <button className="outline-button" onClick={() => void loadData(page)} type="button"><RefreshCw size={16} />Refresh</button>
-            <button className="primary-button" onClick={openCreateForm} type="button"><Plus size={16} />New Project</button>
+            <button className="primary-button" onClick={() => void openCreateForm()} type="button"><Plus size={16} />New Project</button>
           </div>
         </div>
 
@@ -301,7 +313,7 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
                         <td>
                           <div className="table-actions">
                             <button aria-label="Open project" className="icon-button" onClick={() => onOpenProject?.(project.id)} type="button"><Eye size={16} /></button>
-                            <button aria-label="Edit project" className="icon-button" onClick={() => openEditForm(project)} type="button"><Edit3 size={16} /></button>
+                            <button aria-label="Edit project" className="icon-button" onClick={() => void openEditForm(project)} type="button"><Edit3 size={16} /></button>
                             <button aria-label="Archive project" className="icon-button" onClick={() => void handleArchive(project)} type="button"><Archive size={16} /></button>
                           </div>
                         </td>
@@ -353,3 +365,4 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
     </div>
   );
 }
+

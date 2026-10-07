@@ -56,12 +56,16 @@ export function DcRegisterPage({ pendingOnly = false }: { pendingOnly?: boolean 
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function openCreate() {
+  async function openCreate() {
+    setNotice(null);
+    setError(null);
+    const [projectRows, clientRows, invoiceRows] = await Promise.all([listProjectOptions(), listClientOptions(), listInvoiceOptions()]);
+    setProjects(projectRows);
+    setClients(clientRows);
+    setInvoices(invoiceRows);
     setEditing(null);
     setForm(createEmptyDcForm());
     setFormOpen(true);
-    setNotice(null);
-    setError(null);
   }
 
   function openEdit(record: DcRecord) {
@@ -70,6 +74,15 @@ export function DcRegisterPage({ pendingOnly = false }: { pendingOnly?: boolean 
     setFormOpen(true);
     setNotice(null);
     setError(null);
+  }
+
+  function selectProject(projectId: string) {
+    const selectedProject = projects.find((project) => project.id === projectId);
+    setForm((current) => ({
+      ...current,
+      project_id: projectId,
+      client_id: selectedProject?.client_id ?? current.client_id
+    }));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -96,7 +109,7 @@ export function DcRegisterPage({ pendingOnly = false }: { pendingOnly?: boolean 
       <section className="panel">
         <div className="panel-header controls-header">
           <div><h2>{pendingOnly ? "DC Pending Tax Invoice" : "DC Register"}</h2><p>{pendingOnly ? "Dispatches where tax invoice is still pending." : "Create and link delivery challans to tax invoices."}</p></div>
-          <div className="button-row"><button className="outline-button" onClick={() => void load()} type="button"><RefreshCw size={16} />Refresh</button>{!pendingOnly ? <button className="primary-button" onClick={openCreate} type="button"><Plus size={16} />New DC</button> : null}</div>
+          <div className="button-row"><button className="outline-button" onClick={() => void load()} type="button"><RefreshCw size={16} />Refresh</button>{!pendingOnly ? <button className="primary-button" onClick={() => void openCreate()} type="button"><Plus size={16} />New DC</button> : null}</div>
         </div>
         {loading ? <div className="empty-state">Loading DC records...</div> : null}
         {!loading && !records.length ? <div className="empty-state">No DC records found.</div> : null}
@@ -114,7 +127,7 @@ export function DcRegisterPage({ pendingOnly = false }: { pendingOnly?: boolean 
         <form className="project-form" onSubmit={(event) => void submit(event)}>
           <Field label="DC Number *"><input required value={form.dc_number} onChange={(event) => update("dc_number", event.target.value)} /></Field>
           <Field label="DC Date *"><input required type="date" value={form.dc_date} onChange={(event) => update("dc_date", event.target.value)} /></Field>
-          <Field label="Project *"><select required value={form.project_id} onChange={(event) => update("project_id", event.target.value)}><option value="">Select project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.project_code} - {project.project_name}</option>)}</select></Field>
+          <Field label="Project *"><select required value={form.project_id} onChange={(event) => selectProject(event.target.value)}><option value="">Select project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.project_code} - {project.project_name}</option>)}</select></Field>
           <Field label="Client"><select value={form.client_id} onChange={(event) => update("client_id", event.target.value)}><option value="">Select client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field>
           <Field label="Material *"><input required value={form.material_description} onChange={(event) => update("material_description", event.target.value)} /></Field>
           <Field label="Quantity"><input min="0" step="0.001" type="number" value={form.quantity} onChange={(event) => update("quantity", event.target.value)} /></Field>
@@ -131,3 +144,4 @@ export function DcRegisterPage({ pendingOnly = false }: { pendingOnly?: boolean 
     </div>
   );
 }
+

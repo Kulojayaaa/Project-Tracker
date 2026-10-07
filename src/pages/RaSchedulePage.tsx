@@ -60,12 +60,15 @@ export function RaSchedulePage() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function openCreate() {
+  async function openCreate() {
+    setNotice(null);
+    setError(null);
+    const [projectRows, invoiceRows] = await Promise.all([listProjectOptions(), listInvoiceOptions()]);
+    setProjects(projectRows);
+    setInvoices(invoiceRows);
     setEditing(null);
     setForm(createEmptyRaForm());
     setFormOpen(true);
-    setNotice(null);
-    setError(null);
   }
 
   function openEdit(record: RaScheduleRecord) {
@@ -100,7 +103,7 @@ export function RaSchedulePage() {
       <section className="panel">
         <div className="panel-header controls-header">
           <div><h2>RA Bill Schedule</h2><p>Plan, track, and link RA bills to actual invoices.</p></div>
-          <div className="button-row"><button className="outline-button" onClick={() => void load()} type="button"><RefreshCw size={16} />Refresh</button><button className="primary-button" onClick={openCreate} type="button"><Plus size={16} />Plan RA Bill</button></div>
+          <div className="button-row"><button className="outline-button" onClick={() => void load()} type="button"><RefreshCw size={16} />Refresh</button><button className="primary-button" onClick={() => void openCreate()} type="button"><Plus size={16} />Plan RA Bill</button></div>
         </div>
         {loading ? <div className="empty-state">Loading RA schedules...</div> : null}
         {!loading && !records.length ? <div className="empty-state">No RA bills planned yet.</div> : null}
@@ -134,3 +137,4 @@ export function RaSchedulePage() {
     </div>
   );
 }
+

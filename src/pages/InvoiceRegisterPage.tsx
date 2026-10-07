@@ -55,13 +55,16 @@ export function InvoiceRegisterPage() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function openCreate() {
-    const activeFy = financialYears.find((fy) => fy.active) ?? financialYears[0];
+  async function openCreate() {
+    setNotice(null);
+    setError(null);
+    const [fyRows, projectRows] = await Promise.all([listFinancialYears(), listProjectOptions()]);
+    setFinancialYears(fyRows);
+    setProjects(projectRows);
+    const activeFy = fyRows.find((fy) => fy.active) ?? fyRows[0];
     setEditing(null);
     setForm(createEmptyInvoiceForm(activeFy?.id));
     setFormOpen(true);
-    setNotice(null);
-    setError(null);
   }
 
   function openEdit(record: InvoiceRecord) {
@@ -105,7 +108,7 @@ export function InvoiceRegisterPage() {
           </div>
           <div className="button-row">
             <button className="outline-button" onClick={() => void load()} type="button"><RefreshCw size={16} />Refresh</button>
-            <button className="primary-button" onClick={openCreate} type="button"><Plus size={16} />New Invoice</button>
+            <button className="primary-button" onClick={() => void openCreate()} type="button"><Plus size={16} />New Invoice</button>
           </div>
         </div>
         {loading ? <div className="empty-state">Loading invoices...</div> : null}
@@ -176,3 +179,4 @@ export function InvoiceRegisterPage() {
     </div>
   );
 }
+

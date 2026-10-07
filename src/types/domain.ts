@@ -92,6 +92,7 @@ export type FinancialYearOption = {
 
 export type ProjectOption = {
   id: string;
+  client_id: string | null;
   project_code: string;
   project_name: string;
   client_name: string | null;
@@ -295,5 +296,6 @@ export type SalesFormValues = {
   source_reference: string;
   remarks: string;
 };
+
 
 

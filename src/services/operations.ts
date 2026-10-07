@@ -130,13 +130,14 @@ export async function listFinancialYears(): Promise<FinancialYearOption[]> {
 export async function listProjectOptions(): Promise<ProjectOption[]> {
   const { data, error } = await supabase
     .from("project_billing_summary")
-    .select("id, project_code, project_name, client_name, wo_number, total_wo_value, total_invoiced_amount, pending_billing_amount")
+    .select("id, client_id, project_code, project_name, client_name, wo_number, total_wo_value, total_invoiced_amount, pending_billing_amount")
     .order("project_code");
 
   if (error) throw new Error("Unable to load project options.");
 
   return (data ?? []).map((row) => ({
     id: row.id,
+    client_id: row.client_id,
     project_code: row.project_code,
     project_name: row.project_name,
     client_name: row.client_name,
@@ -539,4 +540,5 @@ export function salesToForm(record: SalesRecord): SalesFormValues {
     remarks: record.remarks ?? ""
   };
 }
+
 
