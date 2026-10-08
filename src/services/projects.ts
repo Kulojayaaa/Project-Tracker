@@ -12,31 +12,31 @@ type ProjectSummaryRow = {
   id: string;
   project_code: string;
   project_name: string;
-  client_id: string | null;
+  client_id?: string | null;
   client_name: string | null;
-  location: string | null;
+  location?: string | null;
   wo_number: string | null;
-  wo_date: string | null;
-  project_start_date: string | null;
-  expected_completion_date: string | null;
-  project_manager_id: string | null;
-  project_manager_name: string | null;
+  wo_date?: string | null;
+  project_start_date?: string | null;
+  expected_completion_date?: string | null;
+  project_manager_id?: string | null;
+  project_manager_name?: string | null;
   project_status: ProjectStatus;
-  base_wo_value: number | string;
-  gst_value: number | string;
+  base_wo_value?: number | string | null;
+  gst_value?: number | string | null;
   total_wo_value: number | string;
-  billing_target: number | string;
+  billing_target?: number | string | null;
   opening_invoiced_amount: number | string;
   current_invoiced_amount: number | string | null;
   total_invoiced_amount: number | string | null;
   pending_billing_amount: number | string | null;
   billing_percentage: number | string | null;
   last_invoice_date: string | null;
-  next_proposed_billing_date: string | null;
-  proposed_billing_amount: number | string | null;
-  future_planned_billing: number | string | null;
-  billing_status: string | null;
-  remarks: string | null;
+  next_proposed_billing_date?: string | null;
+  proposed_billing_amount?: number | string | null;
+  future_planned_billing?: number | string | null;
+  billing_status?: string | null;
+  remarks?: string | null;
 };
 
 type ProjectManagerOption = {
@@ -48,31 +48,16 @@ const projectSummarySelect = `
   id,
   project_code,
   project_name,
-  client_id,
   client_name,
-  location,
   wo_number,
-  wo_date,
-  project_start_date,
-  expected_completion_date,
-  project_manager_id,
-  project_manager_name,
-  project_status,
-  base_wo_value,
-  gst_value,
   total_wo_value,
-  billing_target,
   opening_invoiced_amount,
   current_invoiced_amount,
   total_invoiced_amount,
   pending_billing_amount,
   billing_percentage,
   last_invoice_date,
-  next_proposed_billing_date,
-  proposed_billing_amount,
-  future_planned_billing,
-  billing_status,
-  remarks
+  project_status
 `;
 
 function toNumber(value: number | string | null | undefined) {
@@ -88,20 +73,73 @@ function numberFromInput(value: string) {
   return Number(value || 0);
 }
 
+function billingStatusFor(row: ProjectSummaryRow) {
+  if (row.billing_status) return row.billing_status;
+
+  const pending = toNumber(row.pending_billing_amount);
+  if (pending <= 0) return "Fully Billed";
+  if (row.project_status === "completed") return "Completed Project - Billing Pending";
+  return "Billing Plan Shortfall";
+}
+
+async function projectIdsForBaseFilters(clientId?: string, managerId?: string) {
+  if (!clientId && !managerId) return null;
+
+  let query = supabase.from("projects").select("id");
+  if (clientId) query = query.eq("client_id", clientId);
+  if (managerId) query = query.eq("project_manager_id", managerId);
+
+  const { data, error } = await query;
+  if (error) throw new Error("Unable to apply project filters.");
+
+  return (data ?? []).map((row) => row.id as string);
+}
+
+async function withProjectDetails(rows: ProjectSummaryRow[]): Promise<ProjectSummaryRow[]> {
+  if (!rows.length) return rows;
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, client_id, location, wo_date, project_start_date, expected_completion_date, project_manager_id, base_wo_value, gst_value, billing_target, remarks")
+    .in("id", rows.map((row) => row.id));
+
+  if (error) return rows;
+
+  const details = new Map((data ?? []).map((row) => [row.id, row]));
+  return rows.map((row) => {
+    const detail = details.get(row.id);
+    if (!detail) return { ...row, client_id: row.client_id ?? null };
+
+    return {
+      ...row,
+      client_id: (detail.client_id as string | null) ?? row.client_id ?? null,
+      location: (detail.location as string | null) ?? row.location ?? null,
+      wo_date: (detail.wo_date as string | null) ?? row.wo_date ?? null,
+      project_start_date: (detail.project_start_date as string | null) ?? row.project_start_date ?? null,
+      expected_completion_date: (detail.expected_completion_date as string | null) ?? row.expected_completion_date ?? null,
+      project_manager_id: (detail.project_manager_id as string | null) ?? row.project_manager_id ?? null,
+      base_wo_value: detail.base_wo_value as number | string | null,
+      gst_value: detail.gst_value as number | string | null,
+      billing_target: detail.billing_target as number | string | null,
+      remarks: (detail.remarks as string | null) ?? row.remarks ?? null
+    };
+  });
+}
+
 function mapProject(row: ProjectSummaryRow): ProjectSummary {
   return {
     id: row.id,
     project_code: row.project_code,
     project_name: row.project_name,
-    client_id: row.client_id,
+    client_id: row.client_id ?? null,
     client_name: row.client_name,
-    location: row.location,
+    location: row.location ?? null,
     wo_number: row.wo_number,
-    wo_date: row.wo_date,
-    project_start_date: row.project_start_date,
-    expected_completion_date: row.expected_completion_date,
-    project_manager_id: row.project_manager_id,
-    project_manager_name: row.project_manager_name,
+    wo_date: row.wo_date ?? null,
+    project_start_date: row.project_start_date ?? null,
+    expected_completion_date: row.expected_completion_date ?? null,
+    project_manager_id: row.project_manager_id ?? null,
+    project_manager_name: row.project_manager_name ?? null,
     project_status: row.project_status,
     base_wo_value: toNumber(row.base_wo_value),
     gst_value: toNumber(row.gst_value),
@@ -113,11 +151,11 @@ function mapProject(row: ProjectSummaryRow): ProjectSummary {
     pending_billing_amount: toNumber(row.pending_billing_amount),
     billing_percentage: toNumber(row.billing_percentage),
     last_invoice_date: row.last_invoice_date,
-    next_proposed_billing_date: row.next_proposed_billing_date,
+    next_proposed_billing_date: row.next_proposed_billing_date ?? null,
     proposed_billing_amount: toNumber(row.proposed_billing_amount),
     future_planned_billing: toNumber(row.future_planned_billing),
-    billing_status: row.billing_status ?? "Billing Plan Shortfall",
-    remarks: row.remarks
+    billing_status: billingStatusFor(row),
+    remarks: row.remarks ?? null
   };
 }
 
@@ -155,6 +193,9 @@ export async function listProjects(options: ProjectListOptions | string = {}): P
   const sortBy = normalized.sortBy ?? "project_code";
   const sortDirection = normalized.sortDirection ?? "ascending";
   const cleanedSearch = normalized.search?.trim() ?? "";
+  const baseFilterIds = await projectIdsForBaseFilters(normalized.clientId, normalized.managerId);
+
+  if (baseFilterIds && !baseFilterIds.length) return { rows: [], count: 0 };
 
   let query = supabase
     .from("project_billing_summary")
@@ -168,10 +209,8 @@ export async function listProjects(options: ProjectListOptions | string = {}): P
     );
   }
 
-  if (normalized.clientId) query = query.eq("client_id", normalized.clientId);
-  if (normalized.managerId) query = query.eq("project_manager_id", normalized.managerId);
+  if (baseFilterIds) query = query.in("id", baseFilterIds);
   if (normalized.status) query = query.eq("project_status", normalized.status);
-  if (normalized.billingStatus) query = query.eq("billing_status", normalized.billingStatus);
 
   const { data, error, count } = await query;
 
@@ -179,7 +218,12 @@ export async function listProjects(options: ProjectListOptions | string = {}): P
     throw new Error("Unable to load projects. Please check your connection and Supabase permissions.");
   }
 
-  return { rows: ((data ?? []) as ProjectSummaryRow[]).map(mapProject), count: count ?? 0 };
+  let rows = await withProjectDetails((data ?? []) as ProjectSummaryRow[]);
+  if (normalized.billingStatus) {
+    rows = rows.filter((row) => billingStatusFor(row) === normalized.billingStatus);
+  }
+
+  return { rows: rows.map(mapProject), count: normalized.billingStatus ? rows.length : count ?? 0 };
 }
 
 export async function getProject(projectId: string): Promise<ProjectSummary | null> {
@@ -193,7 +237,10 @@ export async function getProject(projectId: string): Promise<ProjectSummary | nu
     throw new Error("Unable to load project details.");
   }
 
-  return data ? mapProject(data as ProjectSummaryRow) : null;
+  if (!data) return null;
+
+  const [row] = await withProjectDetails([data as ProjectSummaryRow]);
+  return mapProject(row);
 }
 
 export function createEmptyProjectForm(): ProjectFormValues {

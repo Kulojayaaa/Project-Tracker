@@ -127,17 +127,31 @@ export async function listFinancialYears(): Promise<FinancialYearOption[]> {
   }));
 }
 
+async function withProjectOptionClientIds(rows: ProjectOption[]): Promise<ProjectOption[]> {
+  if (!rows.length) return rows;
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, client_id")
+    .in("id", rows.map((row) => row.id));
+
+  if (error) return rows;
+
+  const clientIds = new Map((data ?? []).map((row) => [row.id, row.client_id as string | null]));
+  return rows.map((row) => ({ ...row, client_id: clientIds.get(row.id) ?? row.client_id }));
+}
+
 export async function listProjectOptions(): Promise<ProjectOption[]> {
   const { data, error } = await supabase
     .from("project_billing_summary")
-    .select("id, client_id, project_code, project_name, client_name, wo_number, total_wo_value, total_invoiced_amount, pending_billing_amount")
+    .select("id, project_code, project_name, client_name, wo_number, total_wo_value, total_invoiced_amount, pending_billing_amount")
     .order("project_code");
 
   if (error) throw new Error("Unable to load project options.");
 
-  return (data ?? []).map((row) => ({
+  const rows = (data ?? []).map((row) => ({
     id: row.id,
-    client_id: row.client_id,
+    client_id: null,
     project_code: row.project_code,
     project_name: row.project_name,
     client_name: row.client_name,
@@ -146,6 +160,8 @@ export async function listProjectOptions(): Promise<ProjectOption[]> {
     total_invoiced_amount: toNumber(row.total_invoiced_amount),
     pending_billing_amount: toNumber(row.pending_billing_amount)
   }));
+
+  return withProjectOptionClientIds(rows);
 }
 
 export async function listClientOptions(): Promise<ClientOption[]> {
@@ -540,5 +556,6 @@ export function salesToForm(record: SalesRecord): SalesFormValues {
     remarks: record.remarks ?? ""
   };
 }
+
 
 
