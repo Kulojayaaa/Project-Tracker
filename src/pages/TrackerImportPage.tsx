@@ -3,6 +3,8 @@ import { Download, Upload, RefreshCw } from "lucide-react";
 import { ModuleMessage } from "../components/FormBits";
 import { supabase } from "../lib/supabase";
 import { trackingReady } from "../services/data";
+import { mainProjectsReady } from "../services/mainProjects";
+import groupingSql from "../../docs/MAIN_PROJECT_GROUPING_UPGRADE.sql?raw";
 import type { TrackerPreview } from "../services/trackerWorkbook";
 import { formatCurrencyCompact } from "../utils/formatting";
 import upgradeSql from "../../docs/LIVE_DATABASE_UPGRADE.sql?raw";
@@ -11,6 +13,7 @@ export function TrackerImportPage() {
   const [preview, setPreview] = useState<TrackerPreview | null>(null);
   const [filename, setFilename] = useState("");
   const [ready, setReady] = useState(false);
+  const [baseReady, setBaseReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [error, setError] = useState("");
@@ -18,7 +21,10 @@ export function TrackerImportPage() {
   const [canImport, setCanImport] = useState(false);
   async function check() {
     try {
-      setReady(await trackingReady());
+      setError("");
+      const base = await trackingReady();
+      setBaseReady(base);
+      setReady(base && (await mainProjectsReady()));
       const { data } = await supabase.auth.getUser();
       const { data: profile, error: lookupError } = await supabase
         .from("users")
@@ -75,7 +81,7 @@ export function TrackerImportPage() {
       );
       if (rpcError) throw rpcError;
       setNotice(
-        `Import complete: ${data.imported} records created; ${data.skipped} matching records skipped.`,
+        `Import complete: ${data.imported} records created; ${data.skipped} matching records skipped. Main projects: ${data.main_projects ?? preview.payload.groups?.length}; WO scopes: ${data.wo_scopes ?? preview.payload.projects.length}.`,
       );
       setReviewed(false);
     } catch (e) {
@@ -90,11 +96,13 @@ export function TrackerImportPage() {
   }
   function downloadMigration() {
     const url = URL.createObjectURL(
-      new Blob([upgradeSql], { type: "text/plain" }),
+      new Blob([baseReady ? groupingSql : upgradeSql], { type: "text/plain" }),
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = "LIVE_DATABASE_UPGRADE.sql";
+    a.download = baseReady
+      ? "MAIN_PROJECT_GROUPING_UPGRADE.sql"
+      : "LIVE_DATABASE_UPGRADE.sql";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -112,8 +120,8 @@ export function TrackerImportPage() {
             </button>
           </div>
           <p>
-            The live database needs the billing upgrade before records can be
-            imported.
+            The live database needs the main-project grouping upgrade before
+            records can be imported.
           </p>
           <button className="outline-button" onClick={downloadMigration}>
             <Download size={16} />
@@ -146,11 +154,13 @@ export function TrackerImportPage() {
           <>
             <div className="summary-strip">
               <article>
-                <span>Clients</span>
-                <strong>{preview.clientCount}</strong>
+                <span>Main Projects / Clients</span>
+                <strong>
+                  {preview.payload.groups?.length} / {preview.clientCount}
+                </strong>
               </article>
               <article>
-                <span>Projects / Orders</span>
+                <span>WO Scopes / Orders</span>
                 <strong>
                   {preview.payload.projects.length} /{" "}
                   {preview.payload.orders.length}
@@ -209,7 +219,30 @@ export function TrackerImportPage() {
                 </tbody>
               </table>
             </div>
-            <h3>Projects</h3>
+            <h3>Main-Project Mapping</h3>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Main Project</th>
+                    <th>Client</th>
+                    <th>WO Scopes</th>
+                    <th>Source IDs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.payload.groups?.map((g) => (
+                    <tr key={g.group_key}>
+                      <td>{g.project_name}</td>
+                      <td>{g.client_name}</td>
+                      <td>{g.source_codes.length}</td>
+                      <td className="wrap-cell">{g.source_codes.join(", ")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <h3>WO Scope Source Records</h3>
             <div className="table-wrap">
               <table>
                 <thead>

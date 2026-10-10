@@ -4,8 +4,11 @@ Internal web application for project billing, RA bill control, DC-to-tax-invoice
 
 ## Workbook Upgrade (2026-10-10)
 
+See [Main Project Grouping](docs/MAIN_PROJECT_GROUPING.md) for the corrected main-project / WO structure and incremental upgrade for an already upgraded database.
+
 See [Workbook Billing Upgrade](docs/WORKBOOK_UPGRADE.md) for the implemented tracking rules and Excel import.
-Apply [Live Database Upgrade](docs/LIVE_DATABASE_UPGRADE.sql) once in Supabase SQL Editor before using the new tracking features. This preserves existing records; review the upgrade notes first.
+For a database already using the earlier billing upgrade, apply only [Main Project Grouping Upgrade](docs/MAIN_PROJECT_GROUPING_UPGRADE.sql) once. Do not rerun the full upgrade.
+For an original-schema installation, apply [Live Database Upgrade](docs/LIVE_DATABASE_UPGRADE.sql) once. Review the upgrade notes first.
 
 ## Run Locally
 

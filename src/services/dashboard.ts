@@ -1,5 +1,6 @@
 import { allRows } from "./data";
 import { listProjectSummaries } from "./projects";
+import { listMainProjectOptions, rollupMainProjects } from "./mainProjects";
 import {
   listDcs,
   listInvoices,
@@ -26,6 +27,8 @@ export type DashboardSummary = {
   billingPlanShortfall: number;
   pendingDcInvoiceValue: number;
   projectCount: number;
+  woScopeCount: number;
+  unassignedScopeCount: number;
   fullyBilledProjectCount: number;
   pendingProjectCount: number;
   futurePlannedBilling: number;
@@ -51,6 +54,10 @@ export async function getDashboardSummary(): Promise<DashboardSummary | null> {
     listDcs(true),
     listSales(),
   ]);
+  const mainProjects = rollupMainProjects(
+    await listMainProjectOptions(),
+    projects,
+  );
   const snapshot = sales.find(
     (s) => s.financial_year_id === fy.id && s.sales_group === "Irrigation",
   );
@@ -107,12 +114,15 @@ export async function getDashboardSummary(): Promise<DashboardSummary | null> {
       ),
     ),
     pendingDcInvoiceValue: sum(dcs.map((d) => d.dc_value)),
-    projectCount: projects.length,
-    fullyBilledProjectCount: projects.filter(
-      (p) => p.billing_status === "Fully Billed",
+    projectCount: mainProjects.length,
+    woScopeCount: projects.length,
+    unassignedScopeCount: projects.filter((p) => !p.main_project_id).length,
+    fullyBilledProjectCount: mainProjects.filter(
+      (p) =>
+        p.scopes.length > 0 &&
+        p.scopes.every((s) => s.billing_status === "Fully Billed"),
     ).length,
-    pendingProjectCount: projects.filter((p) => p.pending_billing_amount > 0)
-      .length,
+    pendingProjectCount: mainProjects.filter((p) => p.pending > 0).length,
     futurePlannedBilling: future,
     raDueCount: open.filter((r) => r.proposed_bill_date <= today).length,
     raRaisedCount: plans.filter((r) =>

@@ -16,6 +16,7 @@ import { InvoiceRegisterPage } from "./pages/InvoiceRegisterPage";
 import { getPageLabel } from "./pages/PlaceholderPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
+import { MainProjectsPage } from "./pages/MainProjectsPage";
 import { RaSchedulePage } from "./pages/RaSchedulePage";
 import { ReportsPage } from "./pages/ReportsPage";
 import type { AppPage } from "./types/domain";
@@ -46,16 +47,18 @@ function renderPage(
   if (page === "settings-import") return <TrackerImportPage />;
   if (page === "settings-financial-years") return <FinancialYearsPage />;
   if (page === "masters-clients") return <ClientsPage />;
-  if (
-    page === "projects-master" ||
-    page === "projects-create" ||
-    page === "projects-tracker"
-  ) {
+  if (["projects-master", "projects-tracker", "projects-create"].includes(page))
     return (
-      <ProjectsPage
-        onOpenProject={onOpenProject}
+      <MainProjectsPage
+        key={page}
+        onOpenScope={onOpenProject}
+        onNavigate={onNavigate}
         startInCreateMode={page === "projects-create"}
       />
+    );
+  if (page === "projects-scopes") {
+    return (
+      <ProjectsPage onOpenProject={onOpenProject} startInCreateMode={false} />
     );
   }
   if (page === "billing-invoices") return <InvoiceRegisterPage />;

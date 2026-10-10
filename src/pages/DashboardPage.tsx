@@ -304,7 +304,9 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           <div>
             <h2>Project Tracker</h2>
             <p>
-              Open Project Master to enter live project records from Supabase.
+              {summary
+                ? `${summary.projectCount} main projects / ${summary.woScopeCount} WO scopes / ${summary.unassignedScopeCount} unassigned scopes`
+                : "No project data loaded"}
             </p>
           </div>
           <button

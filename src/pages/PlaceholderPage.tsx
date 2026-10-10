@@ -3,6 +3,7 @@ import type { AppPage } from "../types/domain";
 const pageLabels: Record<AppPage, string> = {
   dashboard: "Dashboard",
   "projects-orders": "WO/PO Register",
+  "projects-scopes": "WO Scopes",
   "settings-import": "Excel Import",
   "settings-financial-years": "Financial Years",
   "projects-master": "Project Master",

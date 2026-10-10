@@ -95,6 +95,7 @@ export async function listProjectSummaries(
     return {
       ...p,
       order_count: projectOrders.length,
+      main_project_id: str(p.main_project_id),
       id: String(p.id),
       project_code: String(p.project_code),
       project_name: String(p.project_name),
@@ -208,6 +209,7 @@ export async function getProject(id: string) {
 }
 export function createEmptyProjectForm(): ProjectFormValues {
   return {
+    main_project_id: "",
     project_name: "",
     client_id: "",
     location: "",
@@ -231,6 +233,7 @@ export function createEmptyProjectForm(): ProjectFormValues {
 export function projectToForm(p: ProjectSummary): ProjectFormValues {
   return {
     ...createEmptyProjectForm(),
+    main_project_id: p.main_project_id ?? "",
     project_name: p.project_name,
     client_id: p.client_id ?? "",
     location: p.location ?? "",
@@ -290,6 +293,7 @@ export async function saveProject(v: ProjectFormValues, id?: string) {
     billing_target: money(v.base_wo_value),
     opening_invoiced_amount: money(v.opening_invoiced_amount),
     remarks: v.remarks.trim() || null,
+    ...(v.main_project_id ? { main_project_id: v.main_project_id } : {}),
     ...(ready
       ? {
           project_description: v.project_description.trim() || null,

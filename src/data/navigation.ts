@@ -19,6 +19,7 @@ export const mainNavigation: SidebarItem[] = [
       { label: "Project Master", page: "projects-master" },
       { label: "Project Tracker", page: "projects-tracker" },
       { label: "Create Project", page: "projects-create" },
+      { label: "WO Scopes", page: "projects-scopes" },
       { label: "WO/PO Register", page: "projects-orders" },
     ],
   },

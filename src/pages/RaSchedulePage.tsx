@@ -176,7 +176,7 @@ export function RaSchedulePage() {
             <table>
               <thead>
                 <tr>
-                  <th>Project</th>
+                  <th>WO Scope</th>
                   <th>Period</th>
                   <th>Proposed Date</th>
                   <th>Proposed Amount</th>
@@ -247,7 +247,7 @@ export function RaSchedulePage() {
             className="project-form"
             onSubmit={(event) => void submit(event)}
           >
-            <Field label="Project *">
+            <Field label="WO Scope *">
               <select
                 required
                 value={form.project_id}

@@ -151,7 +151,13 @@ export async function listFinancialYears(): Promise<FinancialYearOption[]> {
 }
 
 export async function listProjectOptions(): Promise<ProjectOption[]> {
-  return listProjectSummaries();
+  const scopes = await listProjectSummaries();
+  return scopes.map((scope) => ({
+    ...scope,
+    project_name: scope.wo_number
+      ? `${scope.project_name} / ${scope.wo_number}`
+      : scope.project_name,
+  }));
 }
 
 export async function listClientOptions(): Promise<ClientOption[]> {

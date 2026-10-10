@@ -240,7 +240,7 @@ export function InvoiceRegisterPage() {
                 <tr>
                   <th>Invoice No.</th>
                   <th>Date</th>
-                  <th>Project</th>
+                  <th>WO Scope</th>
                   <th>Client</th>
                   <th>Type</th>
                   <th>Document</th>
@@ -367,7 +367,7 @@ export function InvoiceRegisterPage() {
                 onChange={(event) => update("invoice_date", event.target.value)}
               />
             </Field>
-            <Field label="Project *">
+            <Field label="WO Scope *">
               <select
                 required
                 value={form.project_id}

@@ -195,7 +195,7 @@ export function DcRegisterPage({
                 <tr>
                   <th>DC No.</th>
                   <th>Date</th>
-                  <th>Project</th>
+                  <th>WO Scope</th>
                   <th>Client</th>
                   <th>Material</th>
                   <th>Value</th>
@@ -277,7 +277,7 @@ export function DcRegisterPage({
                 onChange={(event) => update("dc_date", event.target.value)}
               />
             </Field>
-            <Field label="Project *">
+            <Field label="WO Scope *">
               <select
                 required
                 value={form.project_id}

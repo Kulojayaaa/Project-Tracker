@@ -25,6 +25,7 @@ export type AppPage =
   | "projects-create"
   | "billing-invoices"
   | "projects-orders"
+  | "projects-scopes"
   | "settings-import"
   | "settings-financial-years"
   | "billing-ra-schedule"
@@ -119,6 +120,7 @@ export type ProjectOption = {
 };
 
 export type ProjectSummary = ProjectOption & {
+  main_project_id: string | null;
   order_count: number;
   project_description: string | null;
   carry_forward: boolean;
@@ -174,6 +176,7 @@ export type ProjectListResult = {
 };
 
 export type ProjectFormValues = {
+  main_project_id: string;
   project_description: string;
   project_manager_id: string;
   carry_forward: boolean;

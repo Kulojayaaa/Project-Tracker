@@ -93,7 +93,7 @@ export function OrdersPage() {
             </button>
           </div>
         </div>
-        <Field label="Project">
+        <Field label="WO Scope">
           <select value={filter} onChange={(e) => setFilter(e.target.value)}>
             <option value="">All projects</option>
             {projects.map((p) => (
@@ -111,7 +111,7 @@ export function OrdersPage() {
               <thead>
                 <tr>
                   <th>Order ID</th>
-                  <th>Project</th>
+                  <th>WO Scope</th>
                   <th>WO/PO Number</th>
                   <th>Date</th>
                   <th>Type / Version</th>
@@ -183,7 +183,7 @@ export function OrdersPage() {
                 onChange={(e) => update("order_code", e.target.value)}
               />
             </Field>
-            <Field label="Project *">
+            <Field label="WO Scope *">
               <select
                 required
                 disabled={!!editing}

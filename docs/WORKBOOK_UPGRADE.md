@@ -1,11 +1,14 @@
 # Workbook Billing Upgrade
 Implemented: 2026-10-10
 
+Important correction: the 24 legacy rows are WO scopes. See [Main Project Grouping](MAIN_PROJECT_GROUPING.md) for the reviewed 10-main-project mapping and incremental upgrade. Main project counts must not use the number of legacy rows.
+
 ## Database Activation
-Apply `docs/LIVE_DATABASE_UPGRADE.sql` once in the existing Supabase SQL Editor.
+If the prior billing upgrade is already applied, use only `docs/MAIN_PROJECT_GROUPING_UPGRADE.sql` for this correction. Do not rerun the combined upgrade.
+For an original-schema installation, apply `docs/LIVE_DATABASE_UPGRADE.sql` once in Supabase SQL Editor.
 This combines the audit setup, repaired views, workbook tracking, and private storage policies in one transaction.
 It requires the original schema (migrations 001-003). It preserves existing operational rows.
-If any statement fails, the entire upgrade rolls back. Do not apply both the combined file and migrations 006/007 separately.
+If any statement fails, the entire upgrade rolls back. Do not apply both the combined file and migrations 006/007/008 separately.
 
 The application checks whether the new order table exists. Existing basic pages still work before activation,
 while the import and new tracking fields require the upgrade.
@@ -55,7 +58,7 @@ Audit history is visible for operational tables to operational staff and adminis
 - TypeScript production build and existing lint check.
 - PostgreSQL migration sequence and combined upgrade, using PGlite.
 - Read-only parsing of the actual supplied workbook; no workbook copy or business-data seed is committed.
-- Actual import: 24 projects, 24 orders, 58 documents including 3 credit notes, and 1 sales snapshot.
+- Actual import: 10 main projects, 24 WO scopes, 24 orders, 58 documents including 3 credit notes, and 1 sales snapshot.
 - Repeat import, conflicting batch rollback, cross-project links, and privilege checks.
 - Browser workflow tests with intercepted test data, desktop/mobile screenshots, horizontal overflow check, and genuine XLSX export parsing.
 - Live database application, Storage uploads and real-account end-to-end checks require Supabase activation/access.

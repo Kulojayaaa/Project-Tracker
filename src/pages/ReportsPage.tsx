@@ -10,6 +10,7 @@ import {
 } from "../services/operations";
 import type { AppPage } from "../types/domain";
 import { listProjectSummaries } from "../services/projects";
+import { listMainProjectSummaries } from "../services/mainProjects";
 import { localDate } from "../utils/billing";
 import { formatCurrencyCompact, percentage } from "../utils/formatting";
 
@@ -68,37 +69,52 @@ export function ReportsPage({ page }: ReportsPageProps) {
   async function load() {
     setLoading(true);
     setError(null);
+    setRows([]);
     try {
       if (page === "reports-project-billing") {
-        const projects = await listProjectSummaries();
+        const { groups: projects, unassigned } =
+          await listMainProjectSummaries();
+        if (unassigned.length)
+          throw new Error(
+            `${unassigned.length} WO scopes are unassigned. Assign them in Project Master before running grouped reports.`,
+          );
         setRows(
           projects.map((project) => ({
             "Project ID": project.project_code,
             Project: project.project_name,
             Client: project.client_name ?? "-",
-            "WO Number": project.wo_number ?? "-",
-            "WO Base Value": project.base_wo_value,
-            "Prior FY / Opening Base": project.opening_invoiced_amount,
-            "FY Target Base": project.fy_billing_target,
-            "FY Net Invoiced": project.current_invoiced_amount,
-            "Lifetime Net Invoiced": project.total_invoiced_amount,
-            "Unbilled / Credit Balance": project.raw_remaining_amount,
-            "Billing Status": project.billing_status,
-            "Pending Billing": project.pending_billing_amount,
+            "WO Scopes": project.scopes.length,
+            "WO Base Value": project.base,
+            "Prior FY / Opening Base": project.historical,
+            "FY Target Base": project.fyTarget,
+            "FY Net Invoiced": project.current,
+            "Lifetime Net Invoiced": project.total,
+            "Unbilled / Credit Balance": project.rawBalance,
+            "Billing Status": project.scopes.length
+              ? project.pending > 0
+                ? "Billing Pending"
+                : "No Open Pending Billing"
+              : "No WO Scopes",
+            "Pending Billing": project.pending,
           })),
         );
       } else if (page === "reports-pending-billing") {
-        const projects = await listProjectSummaries();
+        const { groups: projects, unassigned } =
+          await listMainProjectSummaries();
+        if (unassigned.length)
+          throw new Error(
+            `${unassigned.length} WO scopes are unassigned. Assign them in Project Master before running grouped reports.`,
+          );
         setRows(
           projects
-            .filter((project) => project.pending_billing_amount > 0)
-            .sort((a, b) => b.pending_billing_amount - a.pending_billing_amount)
+            .filter((project) => project.pending > 0)
+            .sort((a, b) => b.pending - a.pending)
             .map((project) => ({
               Project: `${project.project_code} - ${project.project_name}`,
               Client: project.client_name ?? "-",
-              "WO Base Value": project.base_wo_value,
-              Invoiced: project.total_invoiced_amount,
-              Pending: project.pending_billing_amount,
+              "WO Base Value": project.base,
+              Invoiced: project.total,
+              Pending: project.pending,
               Status: "Pending Billing",
             })),
         );

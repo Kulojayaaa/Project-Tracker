@@ -7,6 +7,8 @@ import {
   financialYearFor,
 } from "../src/utils/billing";
 import { readTrackerWorkbook } from "../src/services/trackerWorkbook";
+import { rollupMainProjects } from "../src/utils/mainProjectTotals";
+import type { ProjectSummary } from "../src/types/domain";
 async function main() {
   assert.equal(financialYearFor("2026-03-31"), "2025-26");
   assert.equal(financialYearFor("2026-04-01"), "2026-27");
@@ -44,6 +46,40 @@ async function main() {
     dcBillingStatus(true, true, "2026-10-01", null, 7, "2026-10-09"),
     "Invoiced",
   );
+  const rolled = rollupMainProjects(
+    [
+      {
+        id: "main",
+        project_code: "PRJ-1",
+        project_name: "Parent",
+        client_id: "client",
+        location: null,
+        description: null,
+      },
+    ],
+    [
+      {
+        main_project_id: "main",
+        client_name: "Client",
+        pending_billing_amount: 100,
+        raw_remaining_amount: 100,
+        base_wo_value: 200,
+        current_invoiced_amount: 100,
+        total_invoiced_amount: 100,
+      },
+      {
+        main_project_id: "main",
+        client_name: "Client",
+        pending_billing_amount: 0,
+        raw_remaining_amount: -90,
+        base_wo_value: 100,
+        current_invoiced_amount: 190,
+        total_invoiced_amount: 190,
+      },
+    ] as ProjectSummary[],
+  );
+  assert.equal(rolled[0].pending, 100);
+  assert.equal(rolled[0].rawBalance, 10);
   const db = new PGlite();
   await db.exec(`create schema auth;create role authenticated;create role anon;create table auth.users(id uuid primary key);
     create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,owner_id text);alter table storage.objects enable row level security;
@@ -62,6 +98,7 @@ async function main() {
         "005_operational_tracking_views",
         "006_workbook_tracking",
         "007_private_project_documents",
+        "008_main_project_grouping",
       ];
   for (const file of files) {
     await db.exec(
@@ -76,6 +113,16 @@ async function main() {
     await db.exec(readFileSync("docs/LIVE_DATABASE_UPGRADE.sql", "utf8"));
     console.log("PASS combined live upgrade");
   }
+  await db.query("select setval('project_group_code_seq',999)");
+  assert.equal(
+    (
+      await db.query<{ code: string }>(
+        "select generate_main_project_code() as code",
+      )
+    ).rows[0].code,
+    "PRJ-1000",
+  );
+  await db.query("select setval('project_group_code_seq',1,false)");
   const user = "00000000-0000-0000-0000-000000000001";
   await db.exec(`insert into auth.users values ('${user}');insert into public.users(id,name,email,role) values ('${user}','Tester','test@example.invalid','project_admin');
     select set_config('request.jwt.claim.sub','${user}',false);
@@ -97,9 +144,27 @@ async function main() {
       [],
     );
     assert.equal(preview.payload.projects.length, 24);
+    assert.equal(preview.payload.groups?.length, 10);
+    assert.deepEqual(
+      preview.payload.groups?.find(
+        (g) => g.project_name === "Prestige Lake Works",
+      )?.source_codes,
+      ["IRR-005", "IRR-007"],
+    );
+    assert.deepEqual(
+      preview.payload.groups?.find(
+        (g) => g.project_name === "Prestige Bunker Works",
+      )?.source_codes,
+      ["IRR-006"],
+    );
     assert.equal(preview.clientCount, 9);
     assert.equal(preview.payload.invoices.length, 58);
     assert.equal(preview.creditCount, 3);
+    assert.ok(
+      preview.issues.some(
+        (i) => i.location === "ORD-006" && i.message.startsWith("Amended WO"),
+      ),
+    );
     assert.equal(preview.payload.orders.length, 24);
     assert.equal(preview.payload.sales.length, 1);
     await db.exec("set role authenticated");
@@ -111,7 +176,66 @@ async function main() {
     const first = await run(preview.payload);
     assert.equal(first.rows[0].result.imported, 107);
     const repeat = await run(preview.payload);
-    assert.deepEqual(repeat.rows[0].result, { imported: 0, skipped: 107 });
+    assert.deepEqual(repeat.rows[0].result, {
+      imported: 0,
+      skipped: 107,
+      main_projects: 10,
+      wo_scopes: 24,
+    });
+    assert.equal(
+      (
+        await db.query<{ order_type: string }>(
+          "select order_type from project_orders where order_code='ORD-007'",
+        )
+      ).rows[0].order_type,
+      "additional",
+    );
+    const grouped = await db.query<{ count: number }>(
+      "select count(*)::int as count from project_groups",
+    );
+    assert.equal(grouped.rows[0].count, 10);
+    const sandur = await db.query<{ count: number }>(
+      "select count(*)::int as count from projects p join project_groups g on g.id=p.main_project_id where g.project_name='Sandur - Golf'",
+    );
+    assert.equal(sandur.rows[0].count, 10);
+    const invoiceIds = await db.query<{ id: string }>(
+      "select id from project_invoices order by id",
+    );
+    await db.exec(
+      "reset role;update projects set main_project_id=null;delete from project_groups;set role authenticated;",
+    );
+    assert.deepEqual((await run(preview.payload)).rows[0].result, {
+      imported: 0,
+      skipped: 107,
+      main_projects: 10,
+      wo_scopes: 24,
+    });
+    assert.deepEqual(
+      (
+        await db.query<{ id: string }>(
+          "select id from project_invoices order by id",
+        )
+      ).rows,
+      invoiceIds.rows,
+    );
+    const malformed = structuredClone(preview.payload);
+    malformed.groups![0].source_codes.push("IRR-004");
+    await assert.rejects(run(malformed), /cross-client/);
+    await assert.rejects(
+      db.query(
+        "select assign_main_project(array[(select id from projects where project_code='IRR-004')],(select id from project_groups where project_name='Mahabaleshwar Golf'))",
+      ),
+      /same client/,
+    );
+    await assert.rejects(
+      db.query(
+        "update projects set client_id=(select client_id from projects where project_code='IRR-004') where project_code='IRR-001'",
+      ),
+      /linked WO scope/,
+    );
+    console.log(
+      "PASS 10 main projects, separate Prestige bunker, safe existing-record regrouping and cross-client rejection",
+    );
     const net = await db.query<{ net: string }>(
       "select sum(amount_before_gst) as net from project_invoices where invoice_date between '2026-04-01' and '2027-03-31'",
     );
@@ -123,6 +247,7 @@ async function main() {
       project_code: "IRR-999",
       wo_number: "WO-ROLLBACK",
     });
+    corrupt.groups![0].source_codes.push("IRR-999");
     await assert.rejects(run(corrupt), /differs/);
     const rollback = await db.query<{ count: number }>(
       "select count(*)::int as count from projects where project_code='IRR-999'",

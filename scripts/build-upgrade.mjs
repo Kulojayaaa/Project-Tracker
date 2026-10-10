@@ -4,6 +4,7 @@ const files = [
   "005_operational_tracking_views",
   "006_workbook_tracking",
   "007_private_project_documents",
+  "008_main_project_grouping",
 ];
 const parts = files.map((name) => {
   const sql = readFileSync(`supabase/migrations/${name}.sql`, "utf8")
@@ -19,4 +20,8 @@ writeFileSync(
     parts.join("\n\n") +
     "\ncommit;\n",
 );
-console.log("Database upgrade file generated.");
+writeFileSync(
+  "docs/MAIN_PROJECT_GROUPING_UPGRADE.sql",
+  readFileSync("supabase/migrations/008_main_project_grouping.sql", "utf8"),
+);
+console.log("Database upgrade files generated.");

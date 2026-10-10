@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { workbookGroups, type ImportGroup } from "../utils/projectGrouping";
 import {
   financialYearFor,
   money,
@@ -29,6 +30,7 @@ export type ImportProject = {
   remarks: string;
 };
 export type ImportOrder = {
+  order_type?: "original" | "additional";
   order_code: string;
   project_code: string;
   order_number: string;
@@ -63,6 +65,7 @@ export type ImportSales = {
   remarks: string;
 };
 export type TrackerPayload = {
+  groups?: ImportGroup[];
   projects: ImportProject[];
   orders: ImportOrder[];
   invoices: ImportInvoice[];
@@ -330,6 +333,10 @@ export async function readTrackerWorkbook(
     if (missing) derivedOrders++;
     payload.orders.push({
       order_code: code,
+      order_type:
+        p.project_name === "Prestige Lake Additional Works"
+          ? "additional"
+          : "original",
       project_code: id,
       order_number: text(r, 6) || p.wo_number,
       order_date: date(r, 7) || p.wo_date,
@@ -472,15 +479,13 @@ export async function readTrackerWorkbook(
     ...payload.sales.map((s) => s.financial_year),
     "2026-27",
   ]);
-  payload.financialYears = [...fys]
-    .sort()
-    .map((name) => ({
-      name,
-      start_date: `${name.slice(0, 4)}-04-01`,
-      end_date: `${Number(name.slice(0, 4)) + 1}-03-31`,
-      sales_target:
-        payload.sales.find((s) => s.financial_year === name)?.sales_target ?? 0,
-    }));
+  payload.financialYears = [...fys].sort().map((name) => ({
+    name,
+    start_date: `${name.slice(0, 4)}-04-01`,
+    end_date: `${Number(name.slice(0, 4)) + 1}-03-31`,
+    sales_target:
+      payload.sales.find((s) => s.financial_year === name)?.sales_target ?? 0,
+  }));
   const summaries = payload.projects.map((p) => {
     const inv = payload.invoices.filter(
       (i) => i.project_code === p.project_code,
@@ -548,6 +553,16 @@ export async function readTrackerWorkbook(
       location: "Workbook",
       message: "No projects or invoice records found.",
     });
+  payload.groups = workbookGroups(payload.projects);
+  for (const order of payload.orders) {
+    if (/\bAMD[-\s]?\d+/i.test(order.order_number))
+      issues.push({
+        severity: "warning",
+        location: order.order_code,
+        message:
+          "Amended WO reference: the supplied current value is counted once. The previous order value/version is not provided and must not be added again.",
+      });
+  }
   return {
     payload,
     issues,

@@ -59,6 +59,7 @@ const project = (id, code, name) => ({
   project_code: code,
   project_name: name,
   client_id: cid,
+  main_project_id: "main-001",
   base_wo_value: 1000000,
   gst_value: 180000,
   total_wo_value: 1180000,
@@ -87,6 +88,14 @@ const tables = {
   projects: [
     project(pid, "IRR-001", "Course Irrigation"),
     project(pid2, "IRR-002", "Ground Maintenance"),
+  ],
+  project_groups: [
+    {
+      id: "main-001",
+      project_code: "PRJ-001",
+      project_name: "Example Main Project",
+      client_id: cid,
+    },
   ],
   project_orders: [
     {
@@ -182,8 +191,17 @@ await page.screenshot({ path: "artifacts/startup.png" });
 await page
   .getByRole("heading", { name: "Project Billing & Sales Dashboard" })
   .waitFor();
+await page.getByRole("button", { name: "Create Project", exact: true }).click();
+await page
+  .getByRole("heading", { name: "New Main Project", exact: true })
+  .waitFor();
+if (page.viewportSize().width < 1100)
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
 await page
   .getByRole("button", { name: "Project Tracker", exact: true })
+  .click();
+await page
+  .getByRole("button", { name: /PRJ-001 - Example Main Project/ })
   .click();
 await page.getByRole("button", { name: "IRR-001", exact: true }).waitFor();
 await page.screenshot({ path: "artifacts/projects-desktop.png" });
@@ -204,7 +222,7 @@ await page
   .click();
 await page.getByRole("button", { name: "New Invoice", exact: true }).click();
 await page.getByRole("heading", { name: "New Invoice", exact: true }).waitFor();
-await page.getByLabel("Project *", { exact: true }).selectOption(pid2);
+await page.getByLabel("WO Scope *", { exact: true }).selectOption(pid2);
 await page.getByLabel("Document", { exact: true }).selectOption("credit_note");
 assert.equal(
   await page
@@ -216,6 +234,14 @@ assert.equal(
 await page.getByRole("button", { name: "Excel Import", exact: true }).click();
 await page.getByLabel("Choose billing workbook").setInputFiles(workbookPath);
 await page.getByRole("heading", { name: "Reconciliation" }).waitFor();
+assert.equal(
+  await page.locator(".summary-strip article strong").first().innerText(),
+  "10 / 9",
+);
+await page
+  .getByRole("heading", { name: "Main-Project Mapping", exact: true })
+  .waitFor();
+await page.getByText(/Amended WO reference:/).waitFor();
 assert.equal(
   await page.getByText("Needs correction", { exact: true }).count(),
   0,
@@ -238,15 +264,24 @@ await file.saveAs("artifacts/report-test.xlsx");
 const ExcelJS = createRequire(import.meta.url)("exceljs");
 const book = new ExcelJS.Workbook();
 await book.xlsx.readFile("artifacts/report-test.xlsx");
-assert.equal(book.getWorksheet("Report").rowCount, 3);
+assert.equal(book.getWorksheet("Report").rowCount, 2);
 assert.equal(
   typeof book.getWorksheet("Report").getRow(2).getCell(5).value,
   "number",
 );
 await page.setViewportSize({ width: 390, height: 844 });
 await page.getByRole("button", { name: "Menu", exact: true }).click();
+await page.getByRole("button", { name: "Create Project", exact: true }).click();
+await page
+  .getByRole("heading", { name: "New Main Project", exact: true })
+  .waitFor();
+if (page.viewportSize().width < 1100)
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
 await page
   .getByRole("button", { name: "Project Tracker", exact: true })
+  .click();
+await page
+  .getByRole("button", { name: /PRJ-001 - Example Main Project/ })
   .click();
 await page.getByRole("button", { name: "IRR-001", exact: true }).waitFor();
 assert.equal(await page.locator(".sidebar").isVisible(), false);
