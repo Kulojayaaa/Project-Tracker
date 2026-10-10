@@ -2,16 +2,21 @@
 
 Internal web application for project billing, RA bill control, DC-to-tax-invoice tracking, daily sales, and management reporting.
 
+## Workbook Upgrade (2026-10-10)
+
+See [Workbook Billing Upgrade](docs/WORKBOOK_UPGRADE.md) for the implemented tracking rules and Excel import.
+Apply [Live Database Upgrade](docs/LIVE_DATABASE_UPGRADE.sql) once in Supabase SQL Editor before using the new tracking features. This preserves existing records; review the upgrade notes first.
+
 ## Run Locally
 
 Double-click `run-localhost.cmd`, or run:
 
 ```bash
 pnpm install
-pnpm run dev -- --host 127.0.0.1 --port 5173
+pnpm exec vite --host 127.0.0.1 --port 5175
 ```
 
-Then open `http://localhost:5173`.
+Then open `http://127.0.0.1:5175`.
 
 ## Supabase
 
@@ -30,7 +35,7 @@ Optional production override for networks that block `*.supabase.co`:
 VITE_SUPABASE_API_URL=https://api.yourdomain.com
 ```
 
-When `VITE_SUPABASE_API_URL` is set, the browser client uses that URL instead of `VITE_SUPABASE_URL`. Configure this only after setting up a Supabase custom domain for the project.
+When `VITE_SUPABASE_API_URL` is set, the browser client uses that URL instead of `VITE_SUPABASE_URL`. For a full domain URL, configure a Supabase custom domain first. This deployment instead uses `VITE_SUPABASE_API_URL=/supabase` with the trusted server-side Vercel rewrite, so browser requests stay on the application domain.
 
 Do not place database passwords, personal access tokens, or service-role keys in frontend files. Use those only in trusted local tooling or CI secrets.
 
@@ -75,5 +80,3 @@ If local DNS returns a different or suspicious IP, change the computer/router DN
 ```powershell
 ipconfig /flushdns
 ```
-
-

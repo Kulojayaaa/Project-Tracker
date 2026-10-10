@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase, supabaseConfigError, usingSupabaseCoDomain } from "../lib/supabase";
+import {
+  supabase,
+  supabaseConfigError,
+  usingSupabaseCoDomain,
+} from "../lib/supabase";
 import type { WithChildren } from "../types/domain";
 
 function authMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : "Authentication failed. Please check your details.";
+  const message =
+    error instanceof Error
+      ? error.message
+      : "Authentication failed. Please check your details.";
 
   if (/failed to fetch|networkerror|fetch failed/i.test(message)) {
-    return usingSupabaseCoDomain ? "Unable to reach Supabase. Some networks/ISPs may block or poison DNS for *.supabase.co; use a Supabase custom domain in VITE_SUPABASE_API_URL for production if this affects users." : "Unable to reach Supabase. Check the custom Supabase API domain, publishable key, DNS, HTTPS certificate, and network access.";
+    return usingSupabaseCoDomain
+      ? "Unable to reach Supabase. Some networks/ISPs may block or poison DNS for *.supabase.co; use a Supabase custom domain in VITE_SUPABASE_API_URL for production if this affects users."
+      : "Unable to reach Supabase. Check the custom Supabase API domain, publishable key, DNS, HTTPS certificate, and network access.";
   }
 
   return message;
@@ -31,13 +40,16 @@ export function AuthGate({ children }: WithChildren) {
       return;
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    }).catch((sessionError: unknown) => {
-      setError(authMessage(sessionError));
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        setLoading(false);
+      })
+      .catch((sessionError: unknown) => {
+        setError(authMessage(sessionError));
+        setLoading(false);
+      });
 
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
@@ -60,14 +72,16 @@ export function AuthGate({ children }: WithChildren) {
     }
 
     if (!existingProfile) {
-      const { error: insertProfileError } = await supabase.from("users").insert({
-        id: user.id,
-        name: displayName || user.email || "IPI User",
-        email: user.email ?? email,
-        role: "project_admin",
-        department: "Irrigation",
-        active: true
-      });
+      const { error: insertProfileError } = await supabase
+        .from("users")
+        .insert({
+          id: user.id,
+          name: displayName || user.email || "IPI User",
+          email: user.email ?? email,
+          role: "project_manager",
+          department: "Irrigation",
+          active: true,
+        });
 
       if (insertProfileError) {
         throw insertProfileError;
@@ -83,7 +97,10 @@ export function AuthGate({ children }: WithChildren) {
 
     try {
       if (mode === "sign-up") {
-        const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
 
         if (signUpError) {
           throw signUpError;
@@ -93,10 +110,13 @@ export function AuthGate({ children }: WithChildren) {
           await ensureProfile(data.session, name);
           setSession(data.session);
         } else {
-          setMessage("Account created. Please confirm your email if Supabase email confirmation is enabled, then sign in.");
+          setMessage(
+            "Account created. Please confirm your email if Supabase email confirmation is enabled, then sign in.",
+          );
         }
       } else {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error: signInError } =
+          await supabase.auth.signInWithPassword({ email, password });
 
         if (signInError) {
           throw signInError;
@@ -115,7 +135,11 @@ export function AuthGate({ children }: WithChildren) {
   }
 
   if (loading) {
-    return <div className="auth-shell"><div className="auth-card">Checking session...</div></div>;
+    return (
+      <div className="auth-shell">
+        <div className="auth-card">Checking session...</div>
+      </div>
+    );
   }
 
   if (session) {
@@ -135,7 +159,10 @@ export function AuthGate({ children }: WithChildren) {
           </div>
           <h1>Supabase setup required</h1>
           <div className="alert error-alert">{supabaseConfigError}</div>
-          <p>In Vercel, add the required environment variables in Project Settings, then redeploy the latest GitHub commit.</p>
+          <p>
+            In Vercel, add the required environment variables in Project
+            Settings, then redeploy the latest GitHub commit.
+          </p>
         </section>
       </div>
     );
@@ -152,34 +179,74 @@ export function AuthGate({ children }: WithChildren) {
           </div>
         </div>
         <h1>{mode === "sign-in" ? "Sign in" : "Create account"}</h1>
-        <p>Use your Supabase user account to access secured project billing data.</p>
+        <p>
+          Use your Supabase user account to access secured project billing data.
+        </p>
         {message ? <div className="alert success-alert">{message}</div> : null}
         {error ? <div className="alert error-alert">{error}</div> : null}
-        <form className="auth-form" onSubmit={(event) => void handleSubmit(event)}>
+        <form
+          className="auth-form"
+          onSubmit={(event) => void handleSubmit(event)}
+        >
           {mode === "sign-up" ? (
             <label className="form-field">
               <span>Name</span>
-              <input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} />
+              <input
+                autoComplete="name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
             </label>
           ) : null}
           <label className="form-field">
             <span>Email</span>
-            <input autoComplete="email" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+            <input
+              autoComplete="email"
+              required
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
           </label>
           <label className="form-field">
             <span>Password</span>
-            <input autoComplete={mode === "sign-in" ? "current-password" : "new-password"} required minLength={6} type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            <input
+              autoComplete={
+                mode === "sign-in" ? "current-password" : "new-password"
+              }
+              required
+              minLength={6}
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
           </label>
-          <button className="primary-button" disabled={submitting} type="submit">
-            {submitting ? "Please wait..." : mode === "sign-in" ? "Sign in" : "Create account"}
+          <button
+            className="primary-button"
+            disabled={submitting}
+            type="submit"
+          >
+            {submitting
+              ? "Please wait..."
+              : mode === "sign-in"
+                ? "Sign in"
+                : "Create account"}
           </button>
         </form>
-        <button className="link-button" onClick={() => { setError(null); setMessage(null); setMode(mode === "sign-in" ? "sign-up" : "sign-in"); }} type="button">
-          {mode === "sign-in" ? "Need an account? Create one" : "Already have an account? Sign in"}
+        <button
+          className="link-button"
+          onClick={() => {
+            setError(null);
+            setMessage(null);
+            setMode(mode === "sign-in" ? "sign-up" : "sign-in");
+          }}
+          type="button"
+        >
+          {mode === "sign-in"
+            ? "Need an account? Create one"
+            : "Already have an account? Sign in"}
         </button>
       </section>
     </div>
   );
 }
-
-

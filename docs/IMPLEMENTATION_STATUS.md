@@ -1,5 +1,7 @@
 # Implementation Status
 
+Historical assessment below is from 2026-10-07. For the current implementation, billing rules, verification, and the required live database activation, see [Workbook Billing Upgrade](WORKBOOK_UPGRADE.md) dated 2026-10-10. Document upload, audit timeline, workbook import, FY administration, and mobile navigation have since been implemented.
+
 Assessment date: 2026-10-07
 
 ## Summary

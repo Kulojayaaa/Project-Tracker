@@ -2,6 +2,9 @@ import type { AppPage } from "../types/domain";
 
 const pageLabels: Record<AppPage, string> = {
   dashboard: "Dashboard",
+  "projects-orders": "WO/PO Register",
+  "settings-import": "Excel Import",
+  "settings-financial-years": "Financial Years",
   "projects-master": "Project Master",
   "projects-tracker": "Project Tracker",
   "projects-create": "Create Project",
@@ -26,7 +29,7 @@ const pageLabels: Record<AppPage, string> = {
   "masters-billing-types": "Billing Types",
   "masters-locations": "Locations",
   "settings-users": "User Management",
-  "settings-roles": "Roles & Permissions"
+  "settings-roles": "Roles & Permissions",
 };
 
 type PlaceholderPageProps = {
@@ -42,8 +45,9 @@ export function PlaceholderPage({ page }: PlaceholderPageProps) {
     <section className="panel placeholder-panel">
       <h2>{pageLabels[page]}</h2>
       <p>
-        This module is queued for the next implementation step. Navigation now reaches this page, so the feature can be built
-        incrementally without dead sidebar buttons.
+        This module is queued for the next implementation step. Navigation now
+        reaches this page, so the feature can be built incrementally without
+        dead sidebar buttons.
       </p>
     </section>
   );

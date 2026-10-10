@@ -1,0 +1,141 @@
+.page-stack {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.page-stack > .panel {
+  min-width: 0;
+}
+.panel-header > div {
+  min-width: 0;
+  max-width: 100%;
+}
+.panel-header p {
+  overflow-wrap: anywhere;
+}
+.form-field {
+  min-width: 0;
+}
+.main-panel {
+  min-width: 0;
+  flex: 1 1 0;
+}
+.filter-row {
+  flex-wrap: wrap;
+}
+.wide-search {
+  min-width: 0;
+  flex: 1 1 300px;
+}
+.table-wrap {
+  max-width: 100%;
+  min-width: 0;
+}
+.table-wrap td,
+.table-wrap th {
+  white-space: nowrap;
+}
+.summary-strip article {
+  min-width: 0;
+}
+.file-picker {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+.file-picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.wrap-cell {
+  white-space: normal;
+  min-width: 220px;
+  max-width: 620px;
+}
+.account-email {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+.sidebar-backdrop {
+  display: none;
+}
+.panel h3 {
+  font-size: 1rem;
+  margin: 20px 0 10px;
+}
+.form-field textarea {
+  min-height: 76px;
+}
+@media (max-width: 1100px) {
+  .mobile-menu-open .sidebar {
+    display: block;
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(284px, 85vw);
+    overflow-y: auto;
+    z-index: 101;
+  }
+  .mobile-menu-open .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    border: 0;
+    background: #0008;
+    z-index: 100;
+  }
+  .account-email {
+    display: none;
+  }
+}
+@media (max-width: 680px) {
+  .page-stack {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+  .page-stack > .panel {
+    min-width: 0;
+  }
+  .panel-header > div {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .panel-header p {
+    overflow-wrap: anywhere;
+  }
+  .form-field {
+    min-width: 0;
+  }
+  .main-panel {
+    min-width: 0;
+  }
+  .top-header {
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .top-header h1 {
+    font-size: 1.35rem;
+    overflow-wrap: anywhere;
+  }
+  .form-actions {
+    flex-wrap: wrap;
+  }
+  .form-actions .checkbox-field {
+    flex: 1 1 100%;
+  }
+  .panel-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+@media print {
+  .sidebar-backdrop {
+    display: none !important;
+  }
+}

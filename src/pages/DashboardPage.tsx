@@ -2,7 +2,10 @@ import { CalendarDays, FileSpreadsheet, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { StatCard } from "../components/StatCard";
 import { StatusBadge } from "../components/StatusBadge";
-import { getDashboardSummary, type DashboardSummary } from "../services/dashboard";
+import {
+  getDashboardSummary,
+  type DashboardSummary,
+} from "../services/dashboard";
 import type { AppPage, DashboardKpi } from "../types/domain";
 import { formatCurrencyCompact, percentage } from "../utils/formatting";
 
@@ -17,33 +20,72 @@ function emptyValue(label: string) {
 function buildKpis(summary: DashboardSummary | null): DashboardKpi[] {
   if (!summary) {
     return [
-      { label: "Sales Target", value: "No FY configured", detail: "Create an active financial year", tone: "neutral" },
-      { label: "Sales Achieved", value: "No sales data", detail: "Awaiting accounts entry", tone: "neutral" },
-      { label: "Project Billing Pending", value: "No project data", detail: "Calculated after project entry", tone: "warning" },
-      { label: "DC Pending Invoice", value: "No DC data", detail: "Pending DCs will appear after entry", tone: "success" }
+      {
+        label: "Sales Target",
+        value: "No FY configured",
+        detail: "Create an active financial year",
+        tone: "neutral",
+      },
+      {
+        label: "Sales Achieved",
+        value: "No sales data",
+        detail: "Awaiting accounts entry",
+        tone: "neutral",
+      },
+      {
+        label: "Project Billing Pending",
+        value: "No project data",
+        detail: "Calculated after project entry",
+        tone: "warning",
+      },
+      {
+        label: "DC Pending Invoice",
+        value: "No DC data",
+        detail: "Pending DCs will appear after entry",
+        tone: "success",
+      },
     ];
   }
 
   return [
-    { label: "Sales Target", value: formatCurrencyCompact(summary.salesTarget), detail: summary.financialYear, tone: "planned" },
+    {
+      label: "Sales Target",
+      value: formatCurrencyCompact(summary.salesTarget),
+      detail: summary.financialYear,
+      tone: "planned",
+    },
     {
       label: "Sales Achieved",
-      value: summary.salesAchieved === null ? emptyValue("No sales data") : formatCurrencyCompact(summary.salesAchieved),
-      detail: summary.latestSalesReportDate ? `${percentage(summary.salesAchievementPercentage)} achieved` : "Awaiting accounts entry",
-      tone: summary.salesAchieved === null ? "neutral" : "success"
+      value:
+        summary.salesAchieved === null
+          ? emptyValue("No sales data")
+          : formatCurrencyCompact(summary.salesAchieved),
+      detail: summary.latestSalesReportDate
+        ? `${percentage(summary.salesAchievementPercentage)} achieved`
+        : "Awaiting accounts entry",
+      tone: summary.salesAchieved === null ? "neutral" : "success",
     },
     {
       label: "Project Billing Pending",
-      value: summary.totalWoValue > 0 ? formatCurrencyCompact(summary.pendingBillingAmount) : emptyValue("No project data"),
-      detail: summary.totalWoValue > 0 ? `${percentage(summary.projectBillingPercentage)} billed` : "Create projects to calculate",
-      tone: "warning"
+      value:
+        summary.totalWoValue > 0
+          ? formatCurrencyCompact(summary.pendingBillingAmount)
+          : emptyValue("No project data"),
+      detail:
+        summary.totalWoValue > 0
+          ? `${percentage(summary.projectBillingPercentage)} billed`
+          : "Create projects to calculate",
+      tone: "warning",
     },
     {
       label: "DC Pending Invoice",
-      value: summary.pendingDcCount > 0 ? formatCurrencyCompact(summary.pendingDcInvoiceValue) : emptyValue("No pending DCs"),
+      value:
+        summary.pendingDcCount > 0
+          ? formatCurrencyCompact(summary.pendingDcInvoiceValue)
+          : emptyValue("No pending DCs"),
       detail: `${summary.pendingDcCount} pending, ${summary.overdueDcCount} overdue`,
-      tone: summary.overdueDcCount > 0 ? "danger" : "success"
-    }
+      tone: summary.overdueDcCount > 0 ? "danger" : "success",
+    },
   ];
 }
 
@@ -57,34 +99,58 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
     () => [
       {
         label: "Current Month Planned",
-        value: summary ? formatCurrencyCompact(summary.currentMonthPlannedBilling) : "No live billing plan yet",
+        value: summary
+          ? formatCurrencyCompact(summary.currentMonthPlannedBilling)
+          : "No live billing plan yet",
         progress: summary?.currentMonthPlannedBilling ? 100 : 0,
-        tone: "planned" as const
+        tone: "planned" as const,
       },
       {
         label: "Current Month Raised",
-        value: summary ? formatCurrencyCompact(summary.currentMonthActualBilling) : "No invoices entered yet",
+        value: summary
+          ? formatCurrencyCompact(summary.currentMonthActualBilling)
+          : "No invoices entered yet",
         progress: summary?.currentMonthPlannedBilling
-          ? Math.min((summary.currentMonthActualBilling / summary.currentMonthPlannedBilling) * 100, 100)
+          ? Math.min(
+              (summary.currentMonthActualBilling /
+                summary.currentMonthPlannedBilling) *
+                100,
+              100,
+            )
           : 0,
-        tone: "success" as const
+        tone: "success" as const,
       },
       {
         label: "Pending Planned Billing",
-        value: summary ? formatCurrencyCompact(summary.currentMonthPendingPlanned) : "No schedules entered yet",
+        value: summary
+          ? formatCurrencyCompact(summary.currentMonthPendingPlanned)
+          : "No schedules entered yet",
         progress: summary?.currentMonthPlannedBilling
-          ? Math.min((summary.currentMonthPendingPlanned / summary.currentMonthPlannedBilling) * 100, 100)
+          ? Math.min(
+              (summary.currentMonthPendingPlanned /
+                summary.currentMonthPlannedBilling) *
+                100,
+              100,
+            )
           : 0,
-        tone: "warning" as const
+        tone: "warning" as const,
       },
       {
         label: "Billing Shortfall",
-        value: summary ? formatCurrencyCompact(summary.billingPlanShortfall) : "Calculated after projects and RA plans",
-        progress: summary?.pendingBillingAmount ? Math.min((summary.billingPlanShortfall / summary.pendingBillingAmount) * 100, 100) : 0,
-        tone: "danger" as const
-      }
+        value: summary
+          ? formatCurrencyCompact(summary.billingPlanShortfall)
+          : "Calculated after projects and RA plans",
+        progress: summary?.pendingBillingAmount
+          ? Math.min(
+              (summary.billingPlanShortfall / summary.pendingBillingAmount) *
+                100,
+              100,
+            )
+          : 0,
+        tone: "danger" as const,
+      },
     ],
-    [summary]
+    [summary],
   );
 
   async function loadSummary() {
@@ -94,7 +160,11 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
     try {
       setSummary(await getDashboardSummary());
     } catch (summaryError) {
-      setError(summaryError instanceof Error ? summaryError.message : "Unable to load dashboard summary.");
+      setError(
+        summaryError instanceof Error
+          ? summaryError.message
+          : "Unable to load dashboard summary.",
+      );
     } finally {
       setLoading(false);
     }
@@ -125,7 +195,9 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
         </button>
       </section>
 
-      {loading ? <div className="alert">Loading dashboard summary...</div> : null}
+      {loading ? (
+        <div className="alert">Loading dashboard summary...</div>
+      ) : null}
       {error ? <div className="alert error-alert">{error}</div> : null}
 
       <section className="kpi-grid">
@@ -140,7 +212,9 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
               <h2>Billing Pipeline</h2>
               <p>Planned, raised, pending, and shortfall position</p>
             </div>
-            <StatusBadge tone="planned">{summary?.financialYear ?? "No active FY"}</StatusBadge>
+            <StatusBadge tone="planned">
+              {summary?.financialYear ?? "No active FY"}
+            </StatusBadge>
           </div>
           <div className="pipeline-list">
             {pipelineRows.map((row) => (
@@ -150,7 +224,10 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
                   <strong>{row.value}</strong>
                 </div>
                 <div className="progress-track">
-                  <span className={`progress-fill tone-${row.tone}`} style={{ width: `${row.progress}%` }} />
+                  <span
+                    className={`progress-fill tone-${row.tone}`}
+                    style={{ width: `${row.progress}%` }}
+                  />
                 </div>
               </div>
             ))}
@@ -164,29 +241,59 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
             </div>
           </div>
           <div className="action-list">
-            <button className="action-item" onClick={() => onNavigate("billing-ra-schedule")} type="button">
+            <button
+              className="action-item"
+              onClick={() => onNavigate("billing-ra-schedule")}
+              type="button"
+            >
               <div>
                 <strong>RA bills due</strong>
-                <span>Live RA due list comes in the next module step</span>
+                <span>
+                  {summary
+                    ? `${summary.raDueCount} due, ${summary.raDelayedCount} delayed`
+                    : "Loading RA bills"}
+                </span>
               </div>
-              <StatusBadge tone="neutral">Queued</StatusBadge>
-            </button>
-            <button className="action-item" onClick={() => onNavigate("dispatch-dc-pending")} type="button">
-              <div>
-                <strong>DC invoice pending</strong>
-                <span>{summary ? `${summary.pendingDcCount} pending, ${summary.overdueDcCount} overdue` : "No DC data loaded"}</span>
-              </div>
-              <StatusBadge tone={summary?.overdueDcCount ? "danger" : "success"}>
-                {summary ? formatCurrencyCompact(summary.pendingDcInvoiceValue) : "Pending setup"}
+              <StatusBadge tone={summary?.raDueCount ? "warning" : "success"}>
+                {summary?.raDueCount ?? 0}
               </StatusBadge>
             </button>
-            <button className="action-item" onClick={() => onNavigate("billing-forecast")} type="button">
+            <button
+              className="action-item"
+              onClick={() => onNavigate("dispatch-dc-pending")}
+              type="button"
+            >
+              <div>
+                <strong>DC invoice pending</strong>
+                <span>
+                  {summary
+                    ? `${summary.pendingDcCount} pending, ${summary.overdueDcCount} overdue`
+                    : "No DC data loaded"}
+                </span>
+              </div>
+              <StatusBadge
+                tone={summary?.overdueDcCount ? "danger" : "success"}
+              >
+                {summary
+                  ? formatCurrencyCompact(summary.pendingDcInvoiceValue)
+                  : "Pending setup"}
+              </StatusBadge>
+            </button>
+            <button
+              className="action-item"
+              onClick={() => onNavigate("billing-forecast")}
+              type="button"
+            >
               <div>
                 <strong>Billing plan shortfall</strong>
-                <span>Pending billing minus current planned billing</span>
+                <span>Pending billing minus FY planned billing</span>
               </div>
-              <StatusBadge tone={summary?.billingPlanShortfall ? "warning" : "planned"}>
-                {summary ? formatCurrencyCompact(summary.billingPlanShortfall) : "Pending setup"}
+              <StatusBadge
+                tone={summary?.billingPlanShortfall ? "warning" : "planned"}
+              >
+                {summary
+                  ? formatCurrencyCompact(summary.billingPlanShortfall)
+                  : "Pending setup"}
               </StatusBadge>
             </button>
           </div>
@@ -195,10 +302,16 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
       <section className="panel">
         <div className="panel-header">
           <div>
-            <h2>Project Tracker Preview</h2>
-            <p>Open Project Master to enter live project records from Supabase.</p>
+            <h2>Project Tracker</h2>
+            <p>
+              Open Project Master to enter live project records from Supabase.
+            </p>
           </div>
-          <button className="outline-button" onClick={() => onNavigate("projects-master")} type="button">
+          <button
+            className="outline-button"
+            onClick={() => onNavigate("projects-master")}
+            type="button"
+          >
             Open Projects
           </button>
         </div>

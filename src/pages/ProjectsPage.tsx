@@ -1,5 +1,16 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Archive, ArrowDownUp, ChevronLeft, ChevronRight, Edit3, Eye, Plus, RefreshCw, Search, X } from "lucide-react";
+import {
+  Archive,
+  ArrowDownUp,
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  Eye,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
 import { StatusBadge } from "../components/StatusBadge";
 import {
   archiveProject,
@@ -8,38 +19,63 @@ import {
   listProjectManagers,
   listProjects,
   projectToForm,
-  saveProject
+  saveProject,
 } from "../services/projects";
-import type { ClientOption, ProjectFormValues, ProjectListOptions, ProjectStatus, ProjectSummary, StatusTone } from "../types/domain";
+import type {
+  ClientOption,
+  ProjectFormValues,
+  ProjectListOptions,
+  ProjectStatus,
+  ProjectSummary,
+  StatusTone,
+} from "../types/domain";
 import { formatCurrencyCompact, percentage } from "../utils/formatting";
 
-const statusOptions: { value: ProjectStatus; label: string; tone: StatusTone }[] = [
+const statusOptions: {
+  value: ProjectStatus;
+  label: string;
+  tone: StatusTone;
+}[] = [
   { value: "planned", label: "Planned", tone: "planned" },
   { value: "active", label: "Active", tone: "success" },
   { value: "on_hold", label: "On Hold", tone: "warning" },
   { value: "near_completion", label: "Near Completion", tone: "warning" },
   { value: "completed", label: "Completed", tone: "success" },
-  { value: "cancelled", label: "Archived", tone: "neutral" }
+  { value: "cancelled", label: "Archived", tone: "neutral" },
 ];
 
-const billingStatuses = ["Billing Plan Shortfall", "Billing Fully Planned", "Completed Project - Billing Pending", "Fully Billed"];
+const billingStatuses = [
+  "Billing Plan Shortfall",
+  "Billing Fully Planned",
+  "Completed Project - Billing Pending",
+  "Fully Billed",
+  "Closed - Final Billing Closed",
+  "Closed - Balance Cancelled",
+  "Awaiting Client Confirmation",
+  "Not Carried Forward",
+];
 const pageSize = 25;
 
 function statusMeta(status: ProjectStatus) {
-  return statusOptions.find((option) => option.value === status) ?? statusOptions[0];
+  return (
+    statusOptions.find((option) => option.value === status) ?? statusOptions[0]
+  );
 }
 
 function billingTone(status: string): StatusTone {
-  if (status === "Fully Billed" || status === "Billing Fully Planned") return "success";
+  if (status === "Fully Billed" || status === "Billing Fully Planned")
+    return "success";
   if (status === "Completed Project - Billing Pending") return "danger";
   return "warning";
 }
 
-function totalWoFromForm(form: ProjectFormValues) {
-  return Number(form.base_wo_value || 0) + Number(form.gst_value || 0);
-}
-
-function Field({ children, label }: { children: React.ReactNode; label: string }) {
+function Field({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
   return (
     <label className="form-field">
       <span>{label}</span>
@@ -53,7 +89,10 @@ type ProjectsPageProps = {
   onOpenProject?: (projectId: string) => void;
 };
 
-export function ProjectsPage({ startInCreateMode = false, onOpenProject }: ProjectsPageProps) {
+export function ProjectsPage({
+  startInCreateMode = false,
+  onOpenProject,
+}: ProjectsPageProps) {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [managers, setManagers] = useState<{ id: string; name: string }[]>([]);
@@ -64,29 +103,38 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
   const [billingStatus, setBillingStatus] = useState("");
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [sortBy, setSortBy] = useState<ProjectListOptions["sortBy"]>("project_code");
-  const [sortDirection, setSortDirection] = useState<ProjectListOptions["sortDirection"]>("ascending");
+  const [sortBy, setSortBy] =
+    useState<ProjectListOptions["sortBy"]>("project_code");
+  const [sortDirection, setSortDirection] =
+    useState<ProjectListOptions["sortDirection"]>("ascending");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(startInCreateMode);
-  const [editingProject, setEditingProject] = useState<ProjectSummary | null>(null);
-  const [form, setForm] = useState<ProjectFormValues>(() => createEmptyProjectForm());
+  const [editingProject, setEditingProject] = useState<ProjectSummary | null>(
+    null,
+  );
+  const [form, setForm] = useState<ProjectFormValues>(() =>
+    createEmptyProjectForm(),
+  );
 
   const totalPages = Math.max(Math.ceil(totalCount / pageSize), 1);
   const totals = useMemo(() => {
     return projects.reduce(
       (summary, project) => ({
-        woValue: summary.woValue + project.total_wo_value,
+        woValue: summary.woValue + project.base_wo_value,
         invoiced: summary.invoiced + project.total_invoiced_amount,
-        pending: summary.pending + project.pending_billing_amount
+        pending: summary.pending + project.pending_billing_amount,
       }),
-      { woValue: 0, invoiced: 0, pending: 0 }
+      { woValue: 0, invoiced: 0, pending: 0 },
     );
   }, [projects]);
 
-  async function loadData(nextPage = page) {
+  async function loadData(
+    nextPage = page,
+    overrides: Partial<ProjectListOptions> = {},
+  ) {
     setLoading(true);
     setError(null);
 
@@ -94,7 +142,18 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
       const [clientRows, managerRows, projectResult] = await Promise.all([
         listClients(),
         listProjectManagers(),
-        listProjects({ search, clientId, managerId, status, billingStatus, page: nextPage, pageSize, sortBy, sortDirection })
+        listProjects({
+          search,
+          clientId,
+          managerId,
+          status,
+          billingStatus,
+          page: nextPage,
+          pageSize,
+          sortBy,
+          sortDirection,
+          ...overrides,
+        }),
       ]);
       setClients(clientRows);
       setManagers(managerRows);
@@ -102,7 +161,11 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
       setTotalCount(projectResult.count);
       setPage(nextPage);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Unable to load project data.");
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load project data.",
+      );
     } finally {
       setLoading(false);
     }
@@ -118,17 +181,27 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
     }
   }, [startInCreateMode]);
 
-  function updateForm<Key extends keyof ProjectFormValues>(key: Key, value: ProjectFormValues[Key]) {
+  function updateForm<Key extends keyof ProjectFormValues>(
+    key: Key,
+    value: ProjectFormValues[Key],
+  ) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
   async function refreshProjectReferences() {
     try {
-      const [clientRows, managerRows] = await Promise.all([listClients(), listProjectManagers()]);
+      const [clientRows, managerRows] = await Promise.all([
+        listClients(),
+        listProjectManagers(),
+      ]);
       setClients(clientRows);
       setManagers(managerRows);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Unable to load linked master data.");
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load linked master data.",
+      );
     }
   }
 
@@ -165,17 +238,27 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
     try {
       await saveProject(form, editingProject?.id);
       await loadData(page);
-      setNotice(editingProject ? "Project updated successfully." : "Project created successfully with an internal project code.");
+      setNotice(
+        editingProject
+          ? "Project updated successfully."
+          : "Project created successfully with an internal project code.",
+      );
       closeForm();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Unable to save project.");
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to save project.",
+      );
     } finally {
       setSaving(false);
     }
   }
 
   async function handleArchive(project: ProjectSummary) {
-    const confirmed = window.confirm(`Archive ${project.project_code} - ${project.project_name}?`);
+    const confirmed = window.confirm(
+      `Archive ${project.project_code} - ${project.project_name}?`,
+    );
     if (!confirmed) return;
 
     setError(null);
@@ -186,7 +269,11 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
       await loadData(page);
       setNotice("Project archived successfully.");
     } catch (archiveError) {
-      setError(archiveError instanceof Error ? archiveError.message : "Unable to archive project.");
+      setError(
+        archiveError instanceof Error
+          ? archiveError.message
+          : "Unable to archive project.",
+      );
     }
   }
 
@@ -202,25 +289,48 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
     setStatus("");
     setBillingStatus("");
     setPage(1);
-    setTimeout(() => void loadData(1), 0);
+    void loadData(1, {
+      search: "",
+      clientId: "",
+      managerId: "",
+      status: "",
+      billingStatus: "",
+    });
   }
 
   function changeSort(nextSortBy: ProjectListOptions["sortBy"]) {
     if (sortBy === nextSortBy) {
-      setSortDirection(sortDirection === "ascending" ? "descending" : "ascending");
+      setSortDirection(
+        sortDirection === "ascending" ? "descending" : "ascending",
+      );
     } else {
       setSortBy(nextSortBy);
       setSortDirection("ascending");
     }
-    setTimeout(() => void loadData(1), 0);
+    void loadData(1, {
+      sortBy: nextSortBy,
+      sortDirection:
+        sortBy === nextSortBy && sortDirection === "ascending"
+          ? "descending"
+          : "ascending",
+    });
   }
 
   return (
     <div className="page-stack">
       <section className="summary-strip">
-        <article><span>Loaded WO Value</span><strong>{formatCurrencyCompact(totals.woValue)}</strong></article>
-        <article><span>Loaded Total Invoiced</span><strong>{formatCurrencyCompact(totals.invoiced)}</strong></article>
-        <article><span>Loaded Pending Billing</span><strong>{formatCurrencyCompact(totals.pending)}</strong></article>
+        <article>
+          <span>Page WO Base Value</span>
+          <strong>{formatCurrencyCompact(totals.woValue)}</strong>
+        </article>
+        <article>
+          <span>Page Net Invoiced (Base)</span>
+          <strong>{formatCurrencyCompact(totals.invoiced)}</strong>
+        </article>
+        <article>
+          <span>Page Pending Billing (Base)</span>
+          <strong>{formatCurrencyCompact(totals.pending)}</strong>
+        </article>
       </section>
 
       {notice ? <div className="alert success-alert">{notice}</div> : null}
@@ -230,41 +340,109 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
         <div className="panel-header controls-header">
           <div>
             <h2>Project Master & Tracker</h2>
-            <p>Create, search, filter, sort, and open live project billing records.</p>
+            <p>
+              Create, search, filter, sort, and open live project billing
+              records.
+            </p>
           </div>
           <div className="button-row">
-            <button className="outline-button" onClick={() => void loadData(page)} type="button"><RefreshCw size={16} />Refresh</button>
-            <button className="primary-button" onClick={() => void openCreateForm()} type="button"><Plus size={16} />New Project</button>
+            <button
+              className="outline-button"
+              onClick={() => void loadData(page)}
+              type="button"
+            >
+              <RefreshCw size={16} />
+              Refresh
+            </button>
+            <button
+              className="primary-button"
+              onClick={() => void openCreateForm()}
+              type="button"
+            >
+              <Plus size={16} />
+              New Project
+            </button>
           </div>
         </div>
 
-        <form className="filter-row project-filter-row" onSubmit={(event) => void handleSearchSubmit(event)}>
+        <form
+          className="filter-row project-filter-row"
+          onSubmit={(event) => void handleSearchSubmit(event)}
+        >
           <label className="search-box wide-search">
             <Search size={16} />
-            <input onChange={(event) => setSearch(event.target.value)} placeholder="Search project ID, project, client, or WO number" value={search} />
+            <input
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search project ID, project, client, or WO number"
+              value={search}
+            />
           </label>
-          <select aria-label="Client filter" value={clientId} onChange={(event) => setClientId(event.target.value)}>
+          <select
+            aria-label="Client filter"
+            value={clientId}
+            onChange={(event) => setClientId(event.target.value)}
+          >
             <option value="">All clients</option>
-            {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
           </select>
-          <select aria-label="Project manager filter" value={managerId} onChange={(event) => setManagerId(event.target.value)}>
+          <select
+            aria-label="Project manager filter"
+            value={managerId}
+            onChange={(event) => setManagerId(event.target.value)}
+          >
             <option value="">All managers</option>
-            {managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.name}</option>)}
+            {managers.map((manager) => (
+              <option key={manager.id} value={manager.id}>
+                {manager.name}
+              </option>
+            ))}
           </select>
-          <select aria-label="Project status filter" value={status} onChange={(event) => setStatus(event.target.value as ProjectStatus | "")}>
+          <select
+            aria-label="Project status filter"
+            value={status}
+            onChange={(event) =>
+              setStatus(event.target.value as ProjectStatus | "")
+            }
+          >
             <option value="">All statuses</option>
-            {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            {statusOptions.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
           </select>
-          <select aria-label="Billing status filter" value={billingStatus} onChange={(event) => setBillingStatus(event.target.value)}>
+          <select
+            aria-label="Billing status filter"
+            value={billingStatus}
+            onChange={(event) => setBillingStatus(event.target.value)}
+          >
             <option value="">All billing statuses</option>
-            {billingStatuses.map((item) => <option key={item} value={item}>{item}</option>)}
+            {billingStatuses.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
           </select>
-          <button className="outline-button" type="submit">Search</button>
-          <button className="ghost-button" onClick={clearFilters} type="button">Clear</button>
+          <button className="outline-button" type="submit">
+            Search
+          </button>
+          <button className="ghost-button" onClick={clearFilters} type="button">
+            Clear
+          </button>
         </form>
 
-        {loading ? <div className="empty-state">Loading projects...</div> : null}
-        {!loading && !projects.length ? <div className="empty-state">No projects found. Create the first project or adjust your filters.</div> : null}
+        {loading ? (
+          <div className="empty-state">Loading projects...</div>
+        ) : null}
+        {!loading && !projects.length ? (
+          <div className="empty-state">
+            No projects found. Create the first project or adjust your filters.
+          </div>
+        ) : null}
 
         {!loading && projects.length ? (
           <>
@@ -272,16 +450,66 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
               <table>
                 <thead>
                   <tr>
-                    <th><button className="sort-button" onClick={() => changeSort("project_code")} type="button">Project ID <ArrowDownUp size={13} /></button></th>
-                    <th><button className="sort-button" onClick={() => changeSort("project_name")} type="button">Project <ArrowDownUp size={13} /></button></th>
-                    <th><button className="sort-button" onClick={() => changeSort("client_name")} type="button">Client <ArrowDownUp size={13} /></button></th>
+                    <th>
+                      <button
+                        className="sort-button"
+                        onClick={() => changeSort("project_code")}
+                        type="button"
+                      >
+                        Project ID <ArrowDownUp size={13} />
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        className="sort-button"
+                        onClick={() => changeSort("project_name")}
+                        type="button"
+                      >
+                        Project <ArrowDownUp size={13} />
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        className="sort-button"
+                        onClick={() => changeSort("client_name")}
+                        type="button"
+                      >
+                        Client <ArrowDownUp size={13} />
+                      </button>
+                    </th>
                     <th>WO Number</th>
-                    <th><button className="sort-button" onClick={() => changeSort("total_wo_value")} type="button">WO Value <ArrowDownUp size={13} /></button></th>
-                    <th>Opening</th>
+                    <th>
+                      <button
+                        className="sort-button"
+                        onClick={() => changeSort("base_wo_value")}
+                        type="button"
+                      >
+                        WO Base <ArrowDownUp size={13} />
+                      </button>
+                    </th>
+                    <th>Prior FY / Opening (Base)</th>
+                    <th>FY Target (Base)</th>
                     <th>Current FY</th>
-                    <th>Total Invoiced</th>
-                    <th><button className="sort-button" onClick={() => changeSort("pending_billing_amount")} type="button">Pending <ArrowDownUp size={13} /></button></th>
-                    <th><button className="sort-button" onClick={() => changeSort("billing_percentage")} type="button">Billing % <ArrowDownUp size={13} /></button></th>
+                    <th>Net Invoiced (Base)</th>
+                    <th>Unbilled / Credit Balance</th>
+                    <th>
+                      <button
+                        className="sort-button"
+                        onClick={() => changeSort("pending_billing_amount")}
+                        type="button"
+                      >
+                        Pending <ArrowDownUp size={13} />
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        className="sort-button"
+                        onClick={() => changeSort("billing_percentage")}
+                        type="button"
+                      >
+                        Billing % <ArrowDownUp size={13} />
+                      </button>
+                    </th>
                     <th>Last Invoice</th>
                     <th>Next Proposed</th>
                     <th>Proposed Amount</th>
@@ -295,26 +523,91 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
                     const statusItem = statusMeta(project.project_status);
                     return (
                       <tr key={project.id}>
-                        <td><button className="link-table-button" onClick={() => onOpenProject?.(project.id)} type="button"><strong>{project.project_code}</strong></button></td>
+                        <td>
+                          <button
+                            className="link-table-button"
+                            onClick={() => onOpenProject?.(project.id)}
+                            type="button"
+                          >
+                            <strong>{project.project_code}</strong>
+                          </button>
+                        </td>
                         <td>{project.project_name}</td>
                         <td>{project.client_name ?? "-"}</td>
                         <td>{project.wo_number ?? "-"}</td>
-                        <td>{formatCurrencyCompact(project.total_wo_value)}</td>
-                        <td>{formatCurrencyCompact(project.opening_invoiced_amount)}</td>
-                        <td>{formatCurrencyCompact(project.current_invoiced_amount)}</td>
-                        <td>{formatCurrencyCompact(project.total_invoiced_amount)}</td>
-                        <td>{formatCurrencyCompact(project.pending_billing_amount)}</td>
+                        <td>{formatCurrencyCompact(project.base_wo_value)}</td>
+                        <td>
+                          {formatCurrencyCompact(
+                            project.opening_invoiced_amount,
+                          )}
+                        </td>
+                        <td>
+                          {formatCurrencyCompact(project.fy_billing_target)}
+                        </td>
+                        <td>
+                          {formatCurrencyCompact(
+                            project.current_invoiced_amount,
+                          )}
+                        </td>
+                        <td>
+                          {formatCurrencyCompact(project.total_invoiced_amount)}
+                        </td>
+                        <td>
+                          {formatCurrencyCompact(project.raw_remaining_amount)}
+                        </td>
+                        <td>
+                          {formatCurrencyCompact(
+                            project.pending_billing_amount,
+                          )}
+                        </td>
                         <td>{percentage(project.billing_percentage)}</td>
                         <td>{project.last_invoice_date ?? "-"}</td>
                         <td>{project.next_proposed_billing_date ?? "-"}</td>
-                        <td>{project.proposed_billing_amount ? formatCurrencyCompact(project.proposed_billing_amount) : "-"}</td>
-                        <td><StatusBadge tone={statusItem.tone}>{statusItem.label}</StatusBadge></td>
-                        <td><StatusBadge tone={billingTone(project.billing_status)}>{project.billing_status}</StatusBadge></td>
+                        <td>
+                          {project.proposed_billing_amount
+                            ? formatCurrencyCompact(
+                                project.proposed_billing_amount,
+                              )
+                            : "-"}
+                        </td>
+                        <td>
+                          <StatusBadge tone={statusItem.tone}>
+                            {statusItem.label}
+                          </StatusBadge>
+                        </td>
+                        <td>
+                          <StatusBadge
+                            tone={billingTone(project.billing_status)}
+                          >
+                            {project.billing_status}
+                          </StatusBadge>
+                        </td>
                         <td>
                           <div className="table-actions">
-                            <button aria-label="Open project" className="icon-button" onClick={() => onOpenProject?.(project.id)} type="button"><Eye size={16} /></button>
-                            <button aria-label="Edit project" className="icon-button" onClick={() => void openEditForm(project)} type="button"><Edit3 size={16} /></button>
-                            <button aria-label="Archive project" className="icon-button" onClick={() => void handleArchive(project)} type="button"><Archive size={16} /></button>
+                            <button
+                              aria-label="Open project"
+                              className="icon-button"
+                              onClick={() => onOpenProject?.(project.id)}
+                              type="button"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              aria-label="Edit project"
+                              className="icon-button"
+                              onClick={() => void openEditForm(project)}
+                              type="button"
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                            <button
+                              aria-label="Archive project"
+                              className="icon-button"
+                              onClick={() => void handleArchive(project)}
+                              type="button"
+                            >
+                              <Archive size={16} />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -324,10 +617,28 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
               </table>
             </div>
             <div className="pagination-row">
-              <span>Showing page {page} of {totalPages} ({totalCount} projects)</span>
+              <span>
+                Showing page {page} of {totalPages} ({totalCount} projects)
+              </span>
               <div className="button-row">
-                <button className="outline-button" disabled={page <= 1} onClick={() => void loadData(page - 1)} type="button"><ChevronLeft size={16} />Previous</button>
-                <button className="outline-button" disabled={page >= totalPages} onClick={() => void loadData(page + 1)} type="button">Next<ChevronRight size={16} /></button>
+                <button
+                  className="outline-button"
+                  disabled={page <= 1}
+                  onClick={() => void loadData(page - 1)}
+                  type="button"
+                >
+                  <ChevronLeft size={16} />
+                  Previous
+                </button>
+                <button
+                  className="outline-button"
+                  disabled={page >= totalPages}
+                  onClick={() => void loadData(page + 1)}
+                  type="button"
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
               </div>
             </div>
           </>
@@ -338,31 +649,243 @@ export function ProjectsPage({ startInCreateMode = false, onOpenProject }: Proje
         <section className="panel form-panel">
           <div className="panel-header">
             <div>
-              <h2>{editingProject ? `Edit ${editingProject.project_code}` : "Create Project"}</h2>
-              <p>Project ID is generated by the database and remains separate from the WO number.</p>
+              <h2>
+                {editingProject
+                  ? `Edit ${editingProject.project_code}`
+                  : "Create Project"}
+              </h2>
+              <p>
+                Project ID is generated by the database and remains separate
+                from the WO number.
+              </p>
             </div>
-            <button aria-label="Close form" className="icon-button" onClick={closeForm} type="button"><X size={18} /></button>
+            <button
+              aria-label="Close form"
+              className="icon-button"
+              onClick={closeForm}
+              type="button"
+            >
+              <X size={18} />
+            </button>
           </div>
 
-          <form className="project-form" onSubmit={(event) => void handleSubmit(event)}>
-            <Field label="Project Name *"><input required value={form.project_name} onChange={(event) => updateForm("project_name", event.target.value)} /></Field>
-            <Field label="Client"><select value={form.client_id} onChange={(event) => updateForm("client_id", event.target.value)}><option value="">Select client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field>
-            <Field label="Location"><input value={form.location} onChange={(event) => updateForm("location", event.target.value)} /></Field>
-            <Field label="WO Number"><input value={form.wo_number} onChange={(event) => updateForm("wo_number", event.target.value)} /></Field>
-            <Field label="WO Date"><input type="date" value={form.wo_date} onChange={(event) => updateForm("wo_date", event.target.value)} /></Field>
-            <Field label="Start Date"><input type="date" value={form.project_start_date} onChange={(event) => updateForm("project_start_date", event.target.value)} /></Field>
-            <Field label="Expected Completion"><input type="date" value={form.expected_completion_date} onChange={(event) => updateForm("expected_completion_date", event.target.value)} /></Field>
-            <Field label="Status"><select value={form.project_status} onChange={(event) => updateForm("project_status", event.target.value as ProjectStatus)}>{statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></Field>
-            <Field label="Base WO Value"><input min="0" step="0.01" type="number" value={form.base_wo_value} onChange={(event) => updateForm("base_wo_value", event.target.value)} /></Field>
-            <Field label="GST Value"><input min="0" step="0.01" type="number" value={form.gst_value} onChange={(event) => updateForm("gst_value", event.target.value)} /></Field>
-            <Field label="Billing Target"><input min="0" placeholder={`Default ${formatCurrencyCompact(totalWoFromForm(form))}`} step="0.01" type="number" value={form.billing_target} onChange={(event) => updateForm("billing_target", event.target.value)} /></Field>
-            <Field label="Opening / Historical Invoiced"><input min="0" step="0.01" type="number" value={form.opening_invoiced_amount} onChange={(event) => updateForm("opening_invoiced_amount", event.target.value)} /></Field>
-            <label className="form-field full-span"><span>Remarks</span><textarea value={form.remarks} onChange={(event) => updateForm("remarks", event.target.value)} /></label>
-            <div className="form-actions full-span"><button className="ghost-button" onClick={closeForm} type="button">Cancel</button><button className="primary-button" disabled={saving} type="submit">{saving ? "Saving..." : editingProject ? "Save Changes" : "Create Project"}</button></div>
+          <form
+            className="project-form"
+            onSubmit={(event) => void handleSubmit(event)}
+          >
+            <Field label="Project Name *">
+              <input
+                required
+                value={form.project_name}
+                onChange={(event) =>
+                  updateForm("project_name", event.target.value)
+                }
+              />
+            </Field>
+            <Field label="Client">
+              <select
+                value={form.client_id}
+                onChange={(event) =>
+                  updateForm("client_id", event.target.value)
+                }
+              >
+                <option value="">Select client</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Location">
+              <input
+                value={form.location}
+                onChange={(event) => updateForm("location", event.target.value)}
+              />
+            </Field>
+            <Field label="WO Number">
+              <input
+                value={form.wo_number}
+                onChange={(event) =>
+                  updateForm("wo_number", event.target.value)
+                }
+              />
+            </Field>
+            <Field label="WO Date">
+              <input
+                type="date"
+                value={form.wo_date}
+                onChange={(event) => updateForm("wo_date", event.target.value)}
+              />
+            </Field>
+            <Field label="Start Date">
+              <input
+                type="date"
+                value={form.project_start_date}
+                onChange={(event) =>
+                  updateForm("project_start_date", event.target.value)
+                }
+              />
+            </Field>
+            <Field label="Expected Completion">
+              <input
+                type="date"
+                value={form.expected_completion_date}
+                onChange={(event) =>
+                  updateForm("expected_completion_date", event.target.value)
+                }
+              />
+            </Field>
+            <Field label="Status">
+              <select
+                value={form.project_status}
+                onChange={(event) =>
+                  updateForm(
+                    "project_status",
+                    event.target.value as ProjectStatus,
+                  )
+                }
+              >
+                {statusOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label={
+                editingProject?.order_count
+                  ? "Base WO Value (Order Register)"
+                  : "Base WO Value"
+              }
+            >
+              <input
+                min="0"
+                step="0.01"
+                type="number"
+                disabled={!!editingProject?.order_count}
+                value={form.base_wo_value}
+                onChange={(event) =>
+                  updateForm("base_wo_value", event.target.value)
+                }
+              />
+            </Field>
+            <Field label="GST Value">
+              <input
+                min="0"
+                step="0.01"
+                type="number"
+                disabled={!!editingProject?.order_count}
+                value={form.gst_value}
+                onChange={(event) =>
+                  updateForm("gst_value", event.target.value)
+                }
+              />
+            </Field>
+            <Field label="Project Manager">
+              <select
+                value={form.project_manager_id}
+                onChange={(event) =>
+                  updateForm("project_manager_id", event.target.value)
+                }
+              >
+                <option value="">Unassigned</option>
+                {managers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Project Description">
+              <textarea
+                value={form.project_description}
+                onChange={(event) =>
+                  updateForm("project_description", event.target.value)
+                }
+              />
+            </Field>
+            <Field label="Billing Closure">
+              <select
+                value={form.billing_closure}
+                onChange={(event) =>
+                  updateForm(
+                    "billing_closure",
+                    event.target.value as ProjectFormValues["billing_closure"],
+                  )
+                }
+              >
+                <option value="open">Open</option>
+                <option value="closed">Closed - No Further Billing</option>
+                <option value="cancelled_balance">Balance Cancelled</option>
+                <option value="pending_confirmation">
+                  Awaiting Client Confirmation
+                </option>
+              </select>
+            </Field>
+            <Field label="Closure Remarks">
+              <textarea
+                required={["closed", "cancelled_balance"].includes(
+                  form.billing_closure,
+                )}
+                value={form.closure_remarks}
+                onChange={(event) =>
+                  updateForm("closure_remarks", event.target.value)
+                }
+              />
+            </Field>
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={form.carry_forward}
+                onChange={(event) =>
+                  updateForm("carry_forward", event.target.checked)
+                }
+              />
+              Carry unbilled balance into this financial year
+            </label>
+            <Field label="Opening Base (Before Recorded Invoices)">
+              <input
+                min="0"
+                step="0.01"
+                type="number"
+                value={form.opening_invoiced_amount}
+                onChange={(event) =>
+                  updateForm("opening_invoiced_amount", event.target.value)
+                }
+              />
+            </Field>
+            <label className="form-field full-span">
+              <span>Remarks</span>
+              <textarea
+                value={form.remarks}
+                onChange={(event) => updateForm("remarks", event.target.value)}
+              />
+            </label>
+            <div className="form-actions full-span">
+              <button
+                className="ghost-button"
+                onClick={closeForm}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="primary-button"
+                disabled={saving}
+                type="submit"
+              >
+                {saving
+                  ? "Saving..."
+                  : editingProject
+                    ? "Save Changes"
+                    : "Create Project"}
+              </button>
+            </div>
           </form>
         </section>
       ) : null}
     </div>
   );
 }
-

@@ -1,3 +1,11 @@
+import { allRows, trackingReady, requireTracking } from "./data";
+import { listProjectSummaries } from "./projects";
+import {
+  dcBillingStatus,
+  financialYearFor,
+  localDate,
+  money,
+} from "../utils/billing";
 import { supabase } from "../lib/supabase";
 import type {
   BillStatus,
@@ -13,7 +21,7 @@ import type {
   RaScheduleFormValues,
   RaScheduleRecord,
   SalesFormValues,
-  SalesRecord
+  SalesRecord,
 } from "../types/domain";
 
 function toNumber(value: unknown) {
@@ -27,10 +35,16 @@ function emptyToNull(value: string) {
 
 function relationName(value: unknown, field = "name") {
   if (Array.isArray(value)) {
-    return (value[0] as Record<string, unknown> | undefined)?.[field] as string | null | undefined ?? null;
+    return (
+      ((value[0] as Record<string, unknown> | undefined)?.[field] as
+        string | null | undefined) ?? null
+    );
   }
 
-  return (value as Record<string, unknown> | null | undefined)?.[field] as string | null | undefined ?? null;
+  return (
+    ((value as Record<string, unknown> | null | undefined)?.[field] as
+      string | null | undefined) ?? null
+  );
 }
 
 function relationValue(value: unknown, field: string) {
@@ -41,7 +55,6 @@ function relationValue(value: unknown, field: string) {
   return (value as Record<string, unknown> | null | undefined)?.[field] ?? null;
 }
 
-
 export function createEmptyClientForm(): ClientFormValues {
   return {
     name: "",
@@ -49,7 +62,7 @@ export function createEmptyClientForm(): ClientFormValues {
     email: "",
     phone: "",
     gstin: "",
-    active: true
+    active: true,
   };
 }
 
@@ -60,25 +73,27 @@ export function clientToForm(client: ClientRecord): ClientFormValues {
     email: client.email ?? "",
     phone: client.phone ?? "",
     gstin: client.gstin ?? "",
-    active: client.active
+    active: client.active,
   };
 }
 
 export async function listClientsMaster(search = ""): Promise<ClientRecord[]> {
-  let query = supabase
-    .from("clients")
-    .select("id, name, contact_person, email, phone, gstin, active")
-    .order("name")
-    .limit(300);
-
-  const cleanedSearch = search.trim();
-  if (cleanedSearch) {
-    query = query.or(`name.ilike.%${cleanedSearch}%,contact_person.ilike.%${cleanedSearch}%,email.ilike.%${cleanedSearch}%,phone.ilike.%${cleanedSearch}%,gstin.ilike.%${cleanedSearch}%`);
-  }
-
-  const { data, error } = await query;
-  if (error) throw new Error("Unable to load clients.");
-
+  const rows = await allRows<ClientRecord>(
+    "clients",
+    "id, name, contact_person, email, phone, gstin, active",
+  );
+  const searchText = search.trim().toLowerCase();
+  const data = rows.filter(
+    (row) =>
+      !searchText ||
+      [row.name, row.contact_person, row.email, row.phone, row.gstin].some(
+        (value) =>
+          String(value ?? "")
+            .toLowerCase()
+            .includes(searchText),
+      ),
+  );
+  data.sort((a, b) => a.name.localeCompare(b.name));
   return (data ?? []).map((row) => ({
     id: row.id,
     name: row.name,
@@ -86,11 +101,14 @@ export async function listClientsMaster(search = ""): Promise<ClientRecord[]> {
     email: row.email,
     phone: row.phone,
     gstin: row.gstin,
-    active: Boolean(row.active)
+    active: Boolean(row.active),
   }));
 }
 
-export async function saveClient(values: ClientFormValues, id?: string): Promise<void> {
+export async function saveClient(
+  values: ClientFormValues,
+  id?: string,
+): Promise<void> {
   if (!values.name.trim()) {
     throw new Error("Client name is required.");
   }
@@ -101,13 +119,18 @@ export async function saveClient(values: ClientFormValues, id?: string): Promise
     email: emptyToNull(values.email),
     phone: emptyToNull(values.phone),
     gstin: emptyToNull(values.gstin),
-    active: values.active
+    active: values.active,
   };
 
-  const result = id ? await supabase.from("clients").update(payload).eq("id", id) : await supabase.from("clients").insert(payload);
+  const result = id
+    ? await supabase.from("clients").update(payload).eq("id", id)
+    : await supabase.from("clients").insert(payload);
 
   if (result.error) {
-    if (result.error.code === "23505") throw new Error("Client name already exists. Please check the client master.");
+    if (result.error.code === "23505")
+      throw new Error(
+        "Client name already exists. Please check the client master.",
+      );
     throw new Error(result.error.message || "Unable to save client.");
   }
 }
@@ -123,74 +146,59 @@ export async function listFinancialYears(): Promise<FinancialYearOption[]> {
     id: row.id,
     name: row.name,
     sales_target: toNumber(row.sales_target),
-    active: Boolean(row.active)
+    active: Boolean(row.active),
   }));
-}
-
-async function withProjectOptionClientIds(rows: ProjectOption[]): Promise<ProjectOption[]> {
-  if (!rows.length) return rows;
-
-  const { data, error } = await supabase
-    .from("projects")
-    .select("id, client_id")
-    .in("id", rows.map((row) => row.id));
-
-  if (error) return rows;
-
-  const clientIds = new Map((data ?? []).map((row) => [row.id, row.client_id as string | null]));
-  return rows.map((row) => ({ ...row, client_id: clientIds.get(row.id) ?? row.client_id }));
 }
 
 export async function listProjectOptions(): Promise<ProjectOption[]> {
-  const { data, error } = await supabase
-    .from("project_billing_summary")
-    .select("id, project_code, project_name, client_name, wo_number, total_wo_value, total_invoiced_amount, pending_billing_amount")
-    .order("project_code");
-
-  if (error) throw new Error("Unable to load project options.");
-
-  const rows = (data ?? []).map((row) => ({
-    id: row.id,
-    client_id: null,
-    project_code: row.project_code,
-    project_name: row.project_name,
-    client_name: row.client_name,
-    wo_number: row.wo_number,
-    total_wo_value: toNumber(row.total_wo_value),
-    total_invoiced_amount: toNumber(row.total_invoiced_amount),
-    pending_billing_amount: toNumber(row.pending_billing_amount)
-  }));
-
-  return withProjectOptionClientIds(rows);
+  return listProjectSummaries();
 }
 
 export async function listClientOptions(): Promise<ClientOption[]> {
-  const { data, error } = await supabase.from("clients").select("id, name").eq("active", true).order("name");
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, name")
+    .eq("active", true)
+    .order("name");
   if (error) throw new Error("Unable to load clients.");
   return data ?? [];
 }
 
-export async function listInvoiceOptions(): Promise<{ id: string; invoice_number: string; total_amount: number; invoice_date: string }[]> {
-  const { data, error } = await supabase
-    .from("project_invoices")
-    .select("id, invoice_number, total_amount, invoice_date")
-    .order("invoice_date", { ascending: false })
-    .limit(200);
-
-  if (error) throw new Error("Unable to load invoices.");
+export async function listInvoiceOptions(): Promise<
+  {
+    id: string;
+    project_id: string;
+    document_type: string;
+    amount_before_gst: number;
+    invoice_number: string;
+    total_amount: number;
+    invoice_date: string;
+  }[]
+> {
+  const data = await allRows<Record<string, any>>("project_invoices");
+  data.sort((a, b) =>
+    String(b.invoice_date).localeCompare(String(a.invoice_date)),
+  );
 
   return (data ?? []).map((row) => ({
     id: row.id,
     invoice_number: row.invoice_number,
+    project_id: row.project_id,
+    document_type: row.document_type ?? "tax_invoice",
+    amount_before_gst: toNumber(row.amount_before_gst),
     total_amount: toNumber(row.total_amount),
-    invoice_date: row.invoice_date
+    invoice_date: row.invoice_date,
   }));
 }
 
 export function createEmptyInvoiceForm(activeFyId = ""): InvoiceFormValues {
   return {
+    document_type: "tax_invoice",
+    order_id: "",
+    original_invoice_id: "",
+    remarks: "",
     invoice_number: "",
-    invoice_date: new Date().toISOString().slice(0, 10),
+    invoice_date: localDate(),
     project_id: "",
     invoice_type: "RA Bill",
     invoice_description: "",
@@ -198,26 +206,32 @@ export function createEmptyInvoiceForm(activeFyId = ""): InvoiceFormValues {
     billing_period_to: "",
     amount_before_gst: "",
     gst_amount: "",
-    financial_year_id: activeFyId
+    financial_year_id: activeFyId,
   };
 }
 
 export async function listInvoices(search = ""): Promise<InvoiceRecord[]> {
-  let query = supabase
-    .from("project_invoices")
-    .select("*, projects(project_code, project_name, clients(name)), financial_years(name)")
-    .order("invoice_date", { ascending: false })
-    .limit(200);
-
-  if (search.trim()) {
-    query = query.ilike("invoice_number", `%${search.trim()}%`);
-  }
-
-  const { data, error } = await query;
-  if (error) throw new Error("Unable to load invoice register.");
+  const all = await allRows<Record<string, any>>(
+    "project_invoices",
+    "*, projects(project_code, project_name, clients(name)), financial_years(name)",
+  );
+  const data = all.filter(
+    (r) =>
+      !search.trim() ||
+      String(r.invoice_number)
+        .toLowerCase()
+        .includes(search.trim().toLowerCase()),
+  );
+  data.sort((a, b) =>
+    String(b.invoice_date).localeCompare(String(a.invoice_date)),
+  );
 
   return (data ?? []).map((row) => ({
     id: row.id,
+    document_type: row.document_type ?? "tax_invoice",
+    order_id: row.order_id ?? null,
+    original_invoice_id: row.original_invoice_id ?? null,
+    remarks: row.remarks ?? null,
     invoice_number: row.invoice_number,
     invoice_date: row.invoice_date,
     project_id: row.project_id,
@@ -232,12 +246,50 @@ export async function listInvoices(search = ""): Promise<InvoiceRecord[]> {
     gst_amount: toNumber(row.gst_amount),
     total_amount: toNumber(row.total_amount),
     financial_year_id: row.financial_year_id,
-    financial_year_name: relationName(row.financial_years)
+    financial_year_name: relationName(row.financial_years),
   }));
 }
 
 export async function saveInvoice(values: InvoiceFormValues, id?: string) {
+  const ready = await trackingReady();
+  if (
+    !ready &&
+    (values.document_type !== "tax_invoice" ||
+      values.order_id ||
+      values.original_invoice_id ||
+      values.remarks)
+  )
+    await requireTracking();
+  const amount = money(values.amount_before_gst);
+  const gst = money(values.gst_amount);
+  if (amount < 0 || gst < 0)
+    throw new Error(
+      "Enter positive amounts; credit notes are deducted automatically.",
+    );
+  if (values.document_type === "credit_note" && amount === 0)
+    throw new Error("Credit note amount must be greater than zero.");
+  const years = await allRows<Record<string, unknown>>("financial_years");
+  const fy = years.find(
+    (y) =>
+      String(y.name).replace(/^FY\s*/i, "") ===
+      financialYearFor(values.invoice_date),
+  );
+  if (!fy)
+    throw new Error(
+      "Create the financial year matching the invoice date first.",
+    );
+  if (values.financial_year_id && values.financial_year_id !== fy.id)
+    throw new Error("Invoice date must match the selected financial year.");
+  const sign = values.document_type === "credit_note" ? -1 : 1;
   const payload = {
+    ...(ready
+      ? {
+          document_type: values.document_type,
+          order_id: values.order_id || null,
+          original_invoice_id: values.original_invoice_id || null,
+          remarks: values.remarks.trim() || null,
+        }
+      : {}),
     invoice_number: values.invoice_number.trim(),
     invoice_date: values.invoice_date,
     project_id: values.project_id,
@@ -245,9 +297,9 @@ export async function saveInvoice(values: InvoiceFormValues, id?: string) {
     invoice_description: emptyToNull(values.invoice_description),
     billing_period_from: values.billing_period_from || null,
     billing_period_to: values.billing_period_to || null,
-    amount_before_gst: toNumber(values.amount_before_gst),
-    gst_amount: toNumber(values.gst_amount),
-    financial_year_id: values.financial_year_id || null
+    amount_before_gst: sign * amount,
+    gst_amount: sign * gst,
+    financial_year_id: String(fy.id),
   };
 
   const result = id
@@ -255,13 +307,20 @@ export async function saveInvoice(values: InvoiceFormValues, id?: string) {
     : await supabase.from("project_invoices").insert(payload);
 
   if (result.error) {
-    if (result.error.code === "23505") throw new Error("Invoice number already exists. Please check the invoice number.");
+    if (result.error.code === "23505")
+      throw new Error(
+        "Invoice number already exists. Please check the invoice number.",
+      );
     throw new Error(result.error.message || "Unable to save invoice.");
   }
 }
 
 export function invoiceToForm(invoice: InvoiceRecord): InvoiceFormValues {
   return {
+    document_type: invoice.document_type,
+    order_id: invoice.order_id ?? "",
+    original_invoice_id: invoice.original_invoice_id ?? "",
+    remarks: invoice.remarks ?? "",
     invoice_number: invoice.invoice_number,
     invoice_date: invoice.invoice_date,
     project_id: invoice.project_id,
@@ -269,9 +328,9 @@ export function invoiceToForm(invoice: InvoiceRecord): InvoiceFormValues {
     invoice_description: invoice.invoice_description ?? "",
     billing_period_from: invoice.billing_period_from ?? "",
     billing_period_to: invoice.billing_period_to ?? "",
-    amount_before_gst: String(invoice.amount_before_gst || ""),
-    gst_amount: String(invoice.gst_amount || ""),
-    financial_year_id: invoice.financial_year_id ?? ""
+    amount_before_gst: String(Math.abs(invoice.amount_before_gst)),
+    gst_amount: String(Math.abs(invoice.gst_amount)),
+    financial_year_id: invoice.financial_year_id ?? "",
   };
 }
 
@@ -281,25 +340,25 @@ export function createEmptyRaForm(): RaScheduleFormValues {
     billing_period: "",
     billing_period_from: "",
     billing_period_to: "",
-    proposed_bill_date: new Date().toISOString().slice(0, 10),
+    proposed_bill_date: localDate(),
     proposed_bill_amount: "",
     billing_type: "RA Bill",
     work_status: "",
     bill_status: "planned",
     actual_invoice_id: "",
     reason_not_raised: "",
-    remarks: ""
+    remarks: "",
   };
 }
 
 export async function listRaSchedules(): Promise<RaScheduleRecord[]> {
-  const { data, error } = await supabase
-    .from("ra_bill_schedules")
-    .select("*, projects(project_code, project_name), project_invoices(invoice_number)")
-    .order("proposed_bill_date", { ascending: true })
-    .limit(300);
-
-  if (error) throw new Error("Unable to load RA bill schedules.");
+  const data = await allRows<Record<string, any>>(
+    "ra_bill_schedules",
+    "*, projects(project_code, project_name), project_invoices(invoice_number)",
+  );
+  data.sort((a, b) =>
+    String(a.proposed_bill_date).localeCompare(String(b.proposed_bill_date)),
+  );
 
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -315,16 +374,40 @@ export async function listRaSchedules(): Promise<RaScheduleRecord[]> {
     work_status: row.work_status,
     bill_status: row.bill_status as BillStatus,
     actual_invoice_id: row.actual_invoice_id,
-    actual_invoice_number: relationValue(row.project_invoices, "invoice_number") as string | null,
+    actual_invoice_number: relationValue(
+      row.project_invoices,
+      "invoice_number",
+    ) as string | null,
     actual_invoice_date: row.actual_invoice_date,
-    actual_invoice_amount: row.actual_invoice_amount === null ? null : toNumber(row.actual_invoice_amount),
+    actual_invoice_amount:
+      row.actual_invoice_amount === null
+        ? null
+        : toNumber(row.actual_invoice_amount),
     reason_not_raised: row.reason_not_raised,
-    remarks: row.remarks
+    remarks: row.remarks,
   }));
 }
 
-export async function saveRaSchedule(values: RaScheduleFormValues, id?: string) {
-  const invoice = values.actual_invoice_id ? (await listInvoiceOptions()).find((item) => item.id === values.actual_invoice_id) : null;
+export async function saveRaSchedule(
+  values: RaScheduleFormValues,
+  id?: string,
+) {
+  const invoice = values.actual_invoice_id
+    ? (await listInvoiceOptions()).find(
+        (item) => item.id === values.actual_invoice_id,
+      )
+    : null;
+  if (
+    values.actual_invoice_id &&
+    (!invoice ||
+      invoice.project_id !== values.project_id ||
+      invoice.document_type !== "tax_invoice")
+  )
+    throw new Error("Select a tax invoice belonging to this project.");
+  if (["raised", "completed"].includes(values.bill_status) && !invoice)
+    throw new Error(
+      "Link an invoice before marking the RA bill raised or completed.",
+    );
   const payload = {
     project_id: values.project_id,
     billing_period: emptyToNull(values.billing_period),
@@ -337,16 +420,17 @@ export async function saveRaSchedule(values: RaScheduleFormValues, id?: string) 
     bill_status: values.bill_status,
     actual_invoice_id: values.actual_invoice_id || null,
     actual_invoice_date: invoice?.invoice_date ?? null,
-    actual_invoice_amount: invoice?.total_amount ?? null,
+    actual_invoice_amount: invoice?.amount_before_gst ?? null,
     reason_not_raised: emptyToNull(values.reason_not_raised),
-    remarks: emptyToNull(values.remarks)
+    remarks: emptyToNull(values.remarks),
   };
 
   const result = id
     ? await supabase.from("ra_bill_schedules").update(payload).eq("id", id)
     : await supabase.from("ra_bill_schedules").insert(payload);
 
-  if (result.error) throw new Error(result.error.message || "Unable to save RA bill schedule.");
+  if (result.error)
+    throw new Error(result.error.message || "Unable to save RA bill schedule.");
 }
 
 export function raToForm(record: RaScheduleRecord): RaScheduleFormValues {
@@ -362,14 +446,14 @@ export function raToForm(record: RaScheduleRecord): RaScheduleFormValues {
     bill_status: record.bill_status,
     actual_invoice_id: record.actual_invoice_id ?? "",
     reason_not_raised: record.reason_not_raised ?? "",
-    remarks: record.remarks ?? ""
+    remarks: record.remarks ?? "",
   };
 }
 
 export function createEmptyDcForm(): DcFormValues {
   return {
     dc_number: "",
-    dc_date: new Date().toISOString().slice(0, 10),
+    dc_date: localDate(),
     project_id: "",
     client_id: "",
     material_description: "",
@@ -380,42 +464,49 @@ export function createEmptyDcForm(): DcFormValues {
     invoice_id: "",
     expected_invoice_date: "",
     reason_pending: "",
-    remarks: ""
+    remarks: "",
   };
 }
 
-function dcStatus(row: Record<string, unknown>) {
-  if (row.tax_invoice_raised) return "Invoiced";
-  if (row.expected_invoice_date && String(row.expected_invoice_date) < new Date().toISOString().slice(0, 10)) return "Overdue";
-  if (row.expected_invoice_date && String(row.expected_invoice_date) <= new Date().toISOString().slice(0, 10)) return "Due";
-  return "Pending";
-}
-
 export async function listDcs(pendingOnly = false): Promise<DcRecord[]> {
-  let query = supabase
-    .from("delivery_challans")
-    .select("*, projects(project_code, project_name), clients(name), project_invoices(invoice_number)")
-    .order("dc_date", { ascending: false })
-    .limit(300);
+  const all = await allRows<Record<string, any>>(
+    "delivery_challans",
+    "*, projects(project_code, project_name), clients(name), project_invoices(invoice_number)",
+  );
+  const data = all.filter(
+    (r) => !pendingOnly || (r.tax_invoice_required && !r.tax_invoice_raised),
+  );
+  data.sort((a, b) => String(b.dc_date).localeCompare(String(a.dc_date)));
 
-  if (pendingOnly) {
-    query = query.eq("tax_invoice_required", true).eq("tax_invoice_raised", false);
-  }
-
-  const { data, error } = await query;
-  if (error) throw new Error("Unable to load DC records.");
-
-  const today = new Date();
+  const { data: setting, error: settingError } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "dc_overdue_days")
+    .maybeSingle();
+  if (settingError)
+    throw new Error(
+      "Unable to load DC overdue settings: " + settingError.message,
+    );
+  const configuredDays = Number(setting?.value ?? 7);
+  const overdueDays =
+    Number.isFinite(configuredDays) && configuredDays >= 0 ? configuredDays : 7;
+  const todayDate = localDate();
+  const today = new Date(todayDate);
   return (data ?? []).map((row) => {
     const dcDate = new Date(row.dc_date);
-    const pendingDays = Math.max(Math.floor((today.getTime() - dcDate.getTime()) / 86400000), 0);
+    const pendingDays = Math.max(
+      Math.floor((today.getTime() - dcDate.getTime()) / 86400000),
+      0,
+    );
     return {
       id: row.id,
       dc_number: row.dc_number,
       dc_date: row.dc_date,
       project_id: row.project_id,
-      project_code: relationValue(row.projects, "project_code") as string | null,
-      project_name: relationValue(row.projects, "project_name") as string | null,
+      project_code: relationValue(row.projects, "project_code") as
+        string | null,
+      project_name: relationValue(row.projects, "project_name") as
+        string | null,
       client_id: row.client_id,
       client_name: relationName(row.clients),
       material_description: row.material_description,
@@ -425,22 +516,45 @@ export async function listDcs(pendingOnly = false): Promise<DcRecord[]> {
       tax_invoice_required: Boolean(row.tax_invoice_required),
       tax_invoice_raised: Boolean(row.tax_invoice_raised),
       invoice_id: row.invoice_id,
-      invoice_number: relationValue(row.project_invoices, "invoice_number") as string | null,
+      invoice_number: relationValue(row.project_invoices, "invoice_number") as
+        string | null,
       expected_invoice_date: row.expected_invoice_date,
       reason_pending: row.reason_pending,
       remarks: row.remarks,
       pending_days: pendingDays,
-      status: dcStatus(row)
+      status: dcBillingStatus(
+        Boolean(row.tax_invoice_raised),
+        Boolean(row.tax_invoice_required),
+        row.dc_date,
+        row.expected_invoice_date,
+        overdueDays,
+        todayDate,
+      ),
     };
   });
 }
 
 export async function saveDc(values: DcFormValues, id?: string) {
+  const project = (await listProjectOptions()).find(
+    (p) => p.id === values.project_id,
+  );
+  if (!project) throw new Error("Select a valid project.");
+  if (values.invoice_id) {
+    const invoice = (await listInvoiceOptions()).find(
+      (i) => i.id === values.invoice_id,
+    );
+    if (
+      !invoice ||
+      invoice.project_id !== values.project_id ||
+      invoice.document_type !== "tax_invoice"
+    )
+      throw new Error("DC invoice must belong to this project.");
+  }
   const payload = {
     dc_number: values.dc_number.trim(),
     dc_date: values.dc_date,
     project_id: values.project_id,
-    client_id: values.client_id || null,
+    client_id: project.client_id,
     material_description: values.material_description.trim(),
     quantity: toNumber(values.quantity),
     uom: emptyToNull(values.uom),
@@ -450,7 +564,7 @@ export async function saveDc(values: DcFormValues, id?: string) {
     invoice_id: values.invoice_id || null,
     expected_invoice_date: values.expected_invoice_date || null,
     reason_pending: emptyToNull(values.reason_pending),
-    remarks: emptyToNull(values.remarks)
+    remarks: emptyToNull(values.remarks),
   };
 
   const result = id
@@ -458,7 +572,8 @@ export async function saveDc(values: DcFormValues, id?: string) {
     : await supabase.from("delivery_challans").insert(payload);
 
   if (result.error) {
-    if (result.error.code === "23505") throw new Error("DC number already exists. Please check the DC number.");
+    if (result.error.code === "23505")
+      throw new Error("DC number already exists. Please check the DC number.");
     throw new Error(result.error.message || "Unable to save DC.");
   }
 }
@@ -477,13 +592,15 @@ export function dcToForm(record: DcRecord): DcFormValues {
     invoice_id: record.invoice_id ?? "",
     expected_invoice_date: record.expected_invoice_date ?? "",
     reason_pending: record.reason_pending ?? "",
-    remarks: record.remarks ?? ""
+    remarks: record.remarks ?? "",
   };
 }
 
-export function createEmptySalesForm(activeFy?: FinancialYearOption): SalesFormValues {
+export function createEmptySalesForm(
+  activeFy?: FinancialYearOption,
+): SalesFormValues {
   return {
-    report_date: new Date().toISOString().slice(0, 10),
+    report_date: localDate(),
     financial_year_id: activeFy?.id ?? "",
     sales_group: "Irrigation",
     sales_target: activeFy ? String(activeFy.sales_target) : "",
@@ -492,18 +609,18 @@ export function createEmptySalesForm(activeFy?: FinancialYearOption): SalesFormV
     current_month_sales: "",
     cumulative_sales: "",
     source_reference: "",
-    remarks: ""
+    remarks: "",
   };
 }
 
 export async function listSales(): Promise<SalesRecord[]> {
-  const { data, error } = await supabase
-    .from("sales_daily")
-    .select("*, financial_years(name)")
-    .order("report_date", { ascending: false })
-    .limit(200);
-
-  if (error) throw new Error("Unable to load daily sales.");
+  const data = await allRows<Record<string, any>>(
+    "sales_daily",
+    "*, financial_years(name)",
+  );
+  data.sort((a, b) =>
+    String(b.report_date).localeCompare(String(a.report_date)),
+  );
 
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -520,11 +637,29 @@ export async function listSales(): Promise<SalesRecord[]> {
     balance_to_target: toNumber(row.balance_to_target),
     balance_percentage: toNumber(row.balance_percentage),
     source_reference: row.source_reference,
-    remarks: row.remarks
+    remarks: row.remarks,
   }));
 }
 
 export async function saveSales(values: SalesFormValues, id?: string) {
+  if (
+    Math.abs(
+      money(values.sales_up_to_yesterday) +
+        money(values.today_sales) -
+        money(values.cumulative_sales),
+    ) > 0.01
+  )
+    throw new Error(
+      "Cumulative sales must equal sales up to yesterday plus today's sales.",
+    );
+  const years = await allRows<Record<string, unknown>>("financial_years");
+  const fy = years.find((y) => y.id === values.financial_year_id);
+  if (
+    !fy ||
+    values.report_date < String(fy.start_date) ||
+    values.report_date > String(fy.end_date)
+  )
+    throw new Error("Report date must be within the selected financial year.");
   const payload = {
     report_date: values.report_date,
     financial_year_id: values.financial_year_id,
@@ -535,11 +670,14 @@ export async function saveSales(values: SalesFormValues, id?: string) {
     current_month_sales: toNumber(values.current_month_sales),
     cumulative_sales: toNumber(values.cumulative_sales),
     source_reference: emptyToNull(values.source_reference),
-    remarks: emptyToNull(values.remarks)
+    remarks: emptyToNull(values.remarks),
   };
 
-  const result = id ? await supabase.from("sales_daily").update(payload).eq("id", id) : await supabase.from("sales_daily").insert(payload);
-  if (result.error) throw new Error(result.error.message || "Unable to save sales entry.");
+  const result = id
+    ? await supabase.from("sales_daily").update(payload).eq("id", id)
+    : await supabase.from("sales_daily").insert(payload);
+  if (result.error)
+    throw new Error(result.error.message || "Unable to save sales entry.");
 }
 
 export function salesToForm(record: SalesRecord): SalesFormValues {
@@ -553,9 +691,6 @@ export function salesToForm(record: SalesRecord): SalesFormValues {
     current_month_sales: String(record.current_month_sales || ""),
     cumulative_sales: String(record.cumulative_sales || ""),
     source_reference: record.source_reference ?? "",
-    remarks: record.remarks ?? ""
+    remarks: record.remarks ?? "",
   };
 }
-
-
-

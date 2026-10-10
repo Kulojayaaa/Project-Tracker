@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
-export type StatusTone = "planned" | "success" | "warning" | "danger" | "neutral";
+export type StatusTone =
+  "planned" | "success" | "warning" | "danger" | "neutral";
 
 export type DashboardKpi = {
   label: string;
@@ -23,6 +24,9 @@ export type AppPage =
   | "projects-tracker"
   | "projects-create"
   | "billing-invoices"
+  | "projects-orders"
+  | "settings-import"
+  | "settings-financial-years"
   | "billing-ra-schedule"
   | "billing-forecast"
   | "dispatch-dc-register"
@@ -56,14 +60,26 @@ export type WithChildren = {
   children: ReactNode;
 };
 
-export type ProjectStatus = "planned" | "active" | "on_hold" | "near_completion" | "completed" | "cancelled";
-export type BillStatus = "planned" | "due_soon" | "due" | "raised" | "delayed" | "cancelled" | "completed";
+export type ProjectStatus =
+  | "planned"
+  | "active"
+  | "on_hold"
+  | "near_completion"
+  | "completed"
+  | "cancelled";
+export type BillStatus =
+  | "planned"
+  | "due_soon"
+  | "due"
+  | "raised"
+  | "delayed"
+  | "cancelled"
+  | "completed";
 
 export type ClientOption = {
   id: string;
   name: string;
 };
-
 
 export type ClientRecord = {
   id: string;
@@ -103,6 +119,14 @@ export type ProjectOption = {
 };
 
 export type ProjectSummary = ProjectOption & {
+  order_count: number;
+  project_description: string | null;
+  carry_forward: boolean;
+  billing_closure: import("../utils/billing").Closure;
+  closure_remarks: string | null;
+  fy_billing_target: number;
+  raw_remaining_amount: number;
+  prior_invoiced_amount: number;
   client_id: string | null;
   location: string | null;
   wo_date: string | null;
@@ -133,7 +157,14 @@ export type ProjectListOptions = {
   billingStatus?: string;
   page?: number;
   pageSize?: number;
-  sortBy?: "project_code" | "project_name" | "client_name" | "total_wo_value" | "pending_billing_amount" | "billing_percentage";
+  sortBy?:
+    | "project_code"
+    | "project_name"
+    | "client_name"
+    | "base_wo_value"
+    | "total_wo_value"
+    | "pending_billing_amount"
+    | "billing_percentage";
   sortDirection?: "ascending" | "descending";
 };
 
@@ -143,6 +174,11 @@ export type ProjectListResult = {
 };
 
 export type ProjectFormValues = {
+  project_description: string;
+  project_manager_id: string;
+  carry_forward: boolean;
+  billing_closure: import("../utils/billing").Closure;
+  closure_remarks: string;
   project_name: string;
   client_id: string;
   location: string;
@@ -159,6 +195,10 @@ export type ProjectFormValues = {
 };
 
 export type InvoiceRecord = {
+  document_type: "tax_invoice" | "credit_note";
+  order_id: string | null;
+  original_invoice_id: string | null;
+  remarks: string | null;
   id: string;
   invoice_number: string;
   invoice_date: string;
@@ -178,6 +218,10 @@ export type InvoiceRecord = {
 };
 
 export type InvoiceFormValues = {
+  document_type: "tax_invoice" | "credit_note";
+  order_id: string;
+  original_invoice_id: string;
+  remarks: string;
   invoice_number: string;
   invoice_date: string;
   project_id: string;
@@ -296,6 +340,3 @@ export type SalesFormValues = {
   source_reference: string;
   remarks: string;
 };
-
-
-

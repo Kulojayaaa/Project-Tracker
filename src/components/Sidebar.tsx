@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { adminNavigation, mainNavigation } from "../data/navigation";
 import type { AppPage, SidebarItem } from "../types/domain";
@@ -7,7 +8,13 @@ type SidebarProps = {
   onNavigate: (page: AppPage) => void;
 };
 
-function NavigationGroup({ activePage, onNavigate, title, items }: SidebarProps & { title: string; items: SidebarItem[] }) {
+function NavigationGroup({
+  activePage,
+  onNavigate,
+  title,
+  items,
+}: SidebarProps & { title: string; items: SidebarItem[] }) {
+  const [collapsed, setCollapsed] = useState<string[]>([]);
   return (
     <section className="nav-section">
       <p className="nav-title">{title}</p>
@@ -15,13 +22,26 @@ function NavigationGroup({ activePage, onNavigate, title, items }: SidebarProps 
         {items.map((item) => {
           const Icon = item.icon;
           const hasChildren = Boolean(item.childPages?.length);
-          const isActive = item.page === activePage || item.childPages?.some((child) => child.page === activePage);
+          const isActive =
+            item.page === activePage ||
+            item.childPages?.some((child) => child.page === activePage);
 
           return (
             <div className="nav-group" key={item.label}>
               <button
                 className={`nav-item ${isActive ? "active" : ""}`}
-                onClick={() => item.page && onNavigate(item.page)}
+                aria-expanded={
+                  hasChildren ? !collapsed.includes(item.label) : undefined
+                }
+                onClick={() =>
+                  item.page
+                    ? onNavigate(item.page)
+                    : setCollapsed((current) =>
+                        current.includes(item.label)
+                          ? current.filter((label) => label !== item.label)
+                          : [...current, item.label],
+                      )
+                }
                 type="button"
               >
                 <span className="nav-item-main">
@@ -30,7 +50,7 @@ function NavigationGroup({ activePage, onNavigate, title, items }: SidebarProps 
                 </span>
                 {hasChildren ? <ChevronDown size={15} /> : null}
               </button>
-              {hasChildren ? (
+              {hasChildren && !collapsed.includes(item.label) ? (
                 <div className="nav-children">
                   {item.childPages?.map((child) => (
                     <button
@@ -54,7 +74,7 @@ function NavigationGroup({ activePage, onNavigate, title, items }: SidebarProps 
 
 export function Sidebar({ activePage, onNavigate }: SidebarProps) {
   return (
-    <aside className="sidebar">
+    <aside id="app-sidebar" className="sidebar">
       <div className="brand">
         <div className="brand-mark">IPI</div>
         <div>
@@ -62,8 +82,18 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           <span>Irrigation Department</span>
         </div>
       </div>
-      <NavigationGroup activePage={activePage} onNavigate={onNavigate} title="Main" items={mainNavigation} />
-      <NavigationGroup activePage={activePage} onNavigate={onNavigate} title="Admin" items={adminNavigation} />
+      <NavigationGroup
+        activePage={activePage}
+        onNavigate={onNavigate}
+        title="Main"
+        items={mainNavigation}
+      />
+      <NavigationGroup
+        activePage={activePage}
+        onNavigate={onNavigate}
+        title="Admin"
+        items={adminNavigation}
+      />
     </aside>
   );
 }

@@ -1,12 +1,31 @@
-import { Bell, LogOut, Search, UserRound } from "lucide-react";
+import { CalendarDays, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-
+import { listFinancialYears } from "../services/operations";
+import type { AppPage } from "../types/domain";
 type HeaderProps = {
   breadcrumb: string;
   title: string;
+  onNavigate: (page: AppPage) => void;
 };
-
-export function Header({ breadcrumb, title }: HeaderProps) {
+export function Header({ breadcrumb, title, onNavigate }: HeaderProps) {
+  const [fy, setFy] = useState("Financial Years"),
+    [email, setEmail] = useState("");
+  useEffect(() => {
+    let active = true;
+    void listFinancialYears()
+      .then((rows) => {
+        if (active)
+          setFy(rows.find((r) => r.active)?.name ?? "Financial Years");
+      })
+      .catch(() => {});
+    void supabase.auth.getUser().then(({ data }) => {
+      if (active) setEmail(data.user?.email ?? "");
+    });
+    return () => {
+      active = false;
+    };
+  }, [title]);
   return (
     <header className="top-header">
       <div>
@@ -14,22 +33,22 @@ export function Header({ breadcrumb, title }: HeaderProps) {
         <h1>{title}</h1>
       </div>
       <div className="header-actions">
-        <select aria-label="Financial year">
-          <option>FY 2026-27</option>
-          <option>FY 2025-26</option>
-          <option>FY 2024-25</option>
-        </select>
-        <label className="search-box">
-          <Search size={16} />
-          <input placeholder="Search project, client, WO, invoice" />
-        </label>
-        <button aria-label="Notifications" className="icon-button" type="button">
-          <Bell size={18} />
+        <button
+          className="outline-button"
+          onClick={() => onNavigate("settings-financial-years")}
+        >
+          <CalendarDays size={16} />
+          {fy}
         </button>
-        <button aria-label="User profile" className="icon-button" type="button">
-          <UserRound size={18} />
-        </button>
-        <button aria-label="Logout" className="icon-button" onClick={() => void supabase.auth.signOut()} type="button">
+        <span className="account-email" title={email}>
+          {email}
+        </span>
+        <button
+          title="Sign out"
+          aria-label="Sign out"
+          className="icon-button"
+          onClick={() => void supabase.auth.signOut()}
+        >
           <LogOut size={18} />
         </button>
       </div>
